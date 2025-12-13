@@ -6,7 +6,7 @@ import Input from "./components/input/Input"
 import Landing from "./components/landingPage/Landing"
 import Uploadcough from "./components/input/UploadInput"
 import Report from "./components/input/Report"
-import Fetch_aqi_data from "./components/environmental_alert/api_data_fetching"
+import EnvironmentalAlertView from "./components/environmental_alert/environmental_alert_view"
 
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom"
 function App(){
@@ -19,7 +19,7 @@ function App(){
         <Route path="/" element={<Landing />}  />
         <Route path="/login" element={<Login />}  /> 
         <Route path="/dashboard" element={<Dashboard />}  />
-        <Route path="/environmmental_alert" element={<Fetch_aqi_data />}  />
+        <Route path="/environmmental_alert" element={<EnvironmentalAlertView />}  />
         <Route path="/Input" element={<Input />}  />
          <Route path="/Uploadcough" element={<Uploadcough />} />
           <Route path="/Report" element={<Report />} />
