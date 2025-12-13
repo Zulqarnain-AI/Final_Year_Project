@@ -1,0 +1,14 @@
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.hide-scrollbar {
+  scrollbar-width: none;
+}
+.primary{
+    color: #059AA0;
+}
+.primary-bg{
+
+    background-color: #059AA0;
+}
