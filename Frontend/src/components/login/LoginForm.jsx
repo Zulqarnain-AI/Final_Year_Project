@@ -1,7 +1,4 @@
 import { useState } from "react";
-// Removed unnecessary imports for google, facebook, apple
-
-// 🌟 Update prop acceptance: accept navigate, and parent state setters
 export default function LoginForm({ navigate, setParentError, setParentSuccess }) {
     const [formData, setFormData] = useState({
         email: "",
@@ -62,7 +59,7 @@ export default function LoginForm({ navigate, setParentError, setParentSuccess }
 
     return (
         <div className="bg-white px-8 py-6 rounded-2xl shadow-lg w-full max-w-md">
-            <h3 className="text-3xl font-bold text-gray-900 mb-6 text-center">Welcome Back</h3>
+            <h3 className="text-3xl text-gray-900 mb-6 text-center">Enter your credentials</h3>
 
             {localError && <p className="text-red-500 text-sm mb-4">{localError}</p>}
             <form className="space-y-4" onSubmit={handleSubmit}>
