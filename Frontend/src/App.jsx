@@ -9,29 +9,31 @@ import Report from "./components/input/Report"
 import EnvironmentalAlertView from "./components/environmental_alert/environmental_alert_view"
 
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom"
-function App(){
+import RegisterForm from "./components/login/RegisterForm"
+function App() {
 
-  return(
+  return (
 
     <>
-    <Router>
-      <Routes>
-        <Route path="/" element={<Landing />}  />
-        <Route path="/login" element={<Login />}  /> 
-        <Route path="/dashboard" element={<Dashboard />}  />
-        <Route path="/environmmental_alert" element={<EnvironmentalAlertView />}  />
-        <Route path="/Input" element={<Input />}  />
-         <Route path="/Uploadcough" element={<Uploadcough />} />
+      <Router>
+        <Routes>
+          <Route path="/" element={<Landing />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/environmmental_alert" element={<EnvironmentalAlertView />} />
+          <Route path="/Input" element={<Input />} />
+          <Route path="/Uploadcough" element={<Uploadcough />} />
           <Route path="/Report" element={<Report />} />
-         
-      </Routes>
-    </Router>
-    
-    
-    
+          <Route path="/RegisterForm" element={<RegisterForm />} />
 
-    
-    
+        </Routes>
+      </Router>
+
+
+
+
+
+
     </>
   )
-}export default App
+} export default App
