@@ -1,6 +1,5 @@
-import { FileText, AlertTriangle, BarChart3, Heart } from "lucide-react"
+import { FileText, AlertTriangle, BarChart3, Heart,Hospital } from "lucide-react"
 import { Link } from "react-router-dom"
-
 
 const features = [
   {
@@ -20,18 +19,25 @@ const features = [
     icon: BarChart3,
     title: "Report",
     description: "Summary of your recent checkups and test results.",
+    link: "/Report"
   },
   {
     icon: Heart,
     title: "Care plan",
     description: "Daily care plan focusing on wellness goals",
   },
+  {
+    icon: Hospital,
+    title: "Doctor Appointment",
+    description: "Schedule an appointment with a doctor by sending an appointment request",
+    link: "/DoctorList"
+  },
 ]
 
 export function FeatureCards() {
   return (
     <>
-    <div className="w-[1168px]">
+    <div >
       <div className="flex gap-6 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         {features.map((feature) => {
           const Icon = feature.icon

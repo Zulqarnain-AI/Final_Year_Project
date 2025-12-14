@@ -1,4 +1,4 @@
-import fetch_aqi_data from "./api_data_fetching";
+import fetch_aqi_data from "./api_data-fetching";
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "./Card";
 import { MapPin, Bell, Activity } from "lucide-react";

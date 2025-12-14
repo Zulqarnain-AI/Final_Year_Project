@@ -6,10 +6,12 @@ import Input from "./components/input/Input"
 import Landing from "./components/landingPage/Landing"
 import Uploadcough from "./components/input/UploadInput"
 import Report from "./components/input/Report"
-import EnvironmentalAlertView from "./components/environmental_alert/environmental_alert_view"
 
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom"
 import RegisterForm from "./components/login/RegisterForm"
+import EnvironmentalAlertView from "./components/evironmentAlert/environmental_alert_view"
+import DoctorList from "./components/doctor_apointment/DoctorList"
+import DoctorProfile from "./components/doctor_apointment/DoctorPeofile"
 function App() {
 
   return (
@@ -25,6 +27,9 @@ function App() {
           <Route path="/Uploadcough" element={<Uploadcough />} />
           <Route path="/Report" element={<Report />} />
           <Route path="/RegisterForm" element={<RegisterForm />} />
+          <Route path="/DoctorList" element={<DoctorList />} />
+          <Route path="/doctors/:id" element={<DoctorProfile />} />
+
 
         </Routes>
       </Router>

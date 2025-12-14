@@ -11,7 +11,7 @@ function Landing() {
     <>
     <div className="px-[10px] py-[20px] hide-scrollbar  h-screen overflow-y-scroll">
      <Navbar />
-     <Herosection />
+      <Herosection />
       <About />
       <Contact />
       <Footer />
