@@ -16,11 +16,12 @@ function Header() {
         <div className="flex items-center gap-2 ">
           <Link to="/setting">
                     <Settings className="text-[#059AA0] cursor-pointer hover:rotate-90 transition duration-300 hover:scale-110 hover:text-[#6EE7EC]" />
-
           </Link>
-
+<Link to="/profile" style={{display:"flex"}}>
           <img className="h-7 w-7  rounded-full" src={Profile} alt="" />
           <h1 className="text-medium font-medium text-[#059AA0]">Profile</h1>
+
+</Link>
         </div>
       </header>
     </>

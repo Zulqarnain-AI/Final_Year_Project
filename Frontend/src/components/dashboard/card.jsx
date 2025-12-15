@@ -25,6 +25,7 @@ const features = [
     icon: Heart,
     title: "Care plan",
     description: "Daily care plan focusing on wellness goals",
+    link: "/careplan"
   },
   {
     icon: Hospital,

@@ -122,6 +122,22 @@ export default function EnvironmentalAlertView() {
         <Card><CardContent>☁ Cloud: {current.cloud}%</CardContent></Card>
         <Card><CardContent>🌧 Precip: {current.precip_mm} mm</CardContent></Card>
       </div>
+      {/* PM2.5 Trend */}
+      <Card>
+        <CardContent>
+          <h3 className="font-semibold mb-2" style={{ color: "#14b8a6" }}>
+            PM2.5 Hourly Trend
+          </h3>
+          <ResponsiveContainer width="100%" height={250}>
+            <LineChart data={trend}>
+              <XAxis dataKey="t" />
+              <YAxis />
+              <Tooltip />
+              <Line type="monotone" dataKey="pm25" stroke="#14b8a6" strokeWidth={3} />
+            </LineChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
 
       {/* Pollutant charts */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -142,22 +158,7 @@ export default function EnvironmentalAlertView() {
         ))}
       </div>
 
-      {/* PM2.5 Trend */}
-      <Card>
-        <CardContent>
-          <h3 className="font-semibold mb-2" style={{ color: "#14b8a6" }}>
-            PM2.5 Hourly Trend
-          </h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={trend}>
-              <XAxis dataKey="t" />
-              <YAxis />
-              <Tooltip />
-              <Line type="monotone" dataKey="pm25" stroke="#14b8a6" strokeWidth={3} />
-            </LineChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+      
 
            {/* Recommendations */}
       <Card className="border-l-4 shadow-lg" style={{ borderColor: "#14b8a6" }}>

@@ -12,6 +12,10 @@ import RegisterForm from "./components/login/RegisterForm"
 import EnvironmentalAlertView from "./components/evironmentAlert/environmental_alert_view"
 import DoctorList from "./components/doctor_apointment/DoctorList"
 import DoctorProfile from "./components/doctor_apointment/DoctorPeofile"
+import CarePlanUI from "./components/care_plan/Careplan"
+import UserProfileView from "./components/profile/UserProfileView"
+import UserSettings from "./components/profile/Setting"
+import Editprofile from "./components/profile/Editprofile"
 function App() {
 
   return (
@@ -29,6 +33,10 @@ function App() {
           <Route path="/RegisterForm" element={<RegisterForm />} />
           <Route path="/DoctorList" element={<DoctorList />} />
           <Route path="/doctors/:id" element={<DoctorProfile />} />
+          <Route path="/careplan" element={<CarePlanUI />} />
+          <Route path="/profile" element={<UserProfileView />} />
+          <Route path="/setting" element={<UserSettings />} />
+          <Route path="/editProfile" element={<Editprofile />} />
 
 
         </Routes>
