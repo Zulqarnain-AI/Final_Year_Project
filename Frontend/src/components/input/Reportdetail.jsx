@@ -1,10 +1,12 @@
+import { Link } from "react-router-dom";
+
 function ReportDetail() {
   const diseaseData = {
     name: "Asthma",
     description: "Chronic inflammatory disease of the airways",
     severity: "Moderate",
     severityLevel: "2/4",
-    confidenceScore: 89.5,
+    confidenceScore: 95,
     color: "teal", // using teal color scheme
   };
 
@@ -106,25 +108,7 @@ function ReportDetail() {
                 </span>
               </div>
               <div className="h-6 w-px bg-slate-300"></div>
-              <div className="flex items-center gap-2">
-                <svg
-                  className="h-4 w-4 text-slate-500"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
-                <span className="text-slate-600">Report Type:</span>
-                <span className="font-semibold text-slate-900">
-                  Comprehensive Respiratory
-                </span>
-              </div>
+              
             </div>
           </div>
         </div>
@@ -133,20 +117,18 @@ function ReportDetail() {
           Report
         </h1>
 
-        <p className="text-[30px] font-bold text-slate-900 mb-4">
-          Summary of Findings
-        </p>
+        
 
         <div className="flex gap-5 w-full flex-wrap lg:flex-nowrap">
           <div className="w-full lg:w-[800px] mt-[30px] border-2 border-[#059AA0] p-6 shadow-lg rounded-[10px] bg-white">
             <p className="text-[20px] mb-2 text-slate-800">
-              <span className="font-semibold">Suggested Condition:</span>{" "}
+              <span className="font-semibold">Likely Condition:</span>{" "}
               <span className="text-[#059AA0] font-bold">Asthma</span>
             </p>
             <p className="text-[20px] mb-2 text-slate-800">
-              <span className="font-semibold">Possible Diagnosis:</span>{" "}
+              <span className="font-semibold">Probability: </span>{" "}
               <span className="text-[#059AA0] font-bold">
-                Chronic Inflammatory Airways Disease
+                95%
               </span>
             </p>
             <p className="text-[20px] text-slate-800">
@@ -161,7 +143,7 @@ function ReportDetail() {
                 AI Confidence Score
               </p>
               <div className="text-5xl font-bold text-[#059AA0] mb-2">
-                89.5%
+                95%
               </div>
               <div className="w-full bg-slate-200 rounded-full h-3 mt-4">
                 <div
@@ -176,7 +158,7 @@ function ReportDetail() {
 
         {/* Primary Diagnosis Section */}
         <div className="mb-6">
-          <h2 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-slate-900 mb-5 flex items-center gap-2 mt-8">
             <svg
               className="h-6 w-6 text-[#059AA0]"
               fill="none"
@@ -222,7 +204,7 @@ function ReportDetail() {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-slate-700">
-                    Condition Name
+                    Likely Condition
                   </span>
                 </div>
                 <p className="text-3xl font-bold text-[#059AA0] mb-1">
@@ -242,9 +224,7 @@ function ReportDetail() {
                     <div className="px-3 py-1.5 bg-amber-50 text-amber-700 border-2 border-amber-200 rounded-lg font-semibold">
                       {diseaseData.severity}
                     </div>
-                    <span className="text-sm text-slate-500">
-                      ({diseaseData.severityLevel})
-                    </span>
+                    
                   </div>
                 </div>
                 <div>
@@ -614,13 +594,13 @@ function ReportDetail() {
           </div>
         </div>
         <div className="flex flex-row justify-end mb-6 w-full">
-          <button className="mr-4 bg-[#059AA0] text-white py-2 px-4 rounded border-2 border-transparent hover:bg-white hover:text-[#059AA0] hover:border-[#059AA0] transition-all duration-300">
-            Back to Home
-          </button>
+          <Link to="/dashboard" className="mr-4 bg-[#059AA0] text-white py-2 px-4 rounded border-2 border-transparent hover:bg-white hover:text-[#059AA0] hover:border-[#059AA0] transition-all duration-300">
+            Back to Dashboard
+          </Link>
 
-          <button className="mr-4 bg-[#059AA0] text-white py-2 px-4 rounded border-2 border-transparent hover:bg-white hover:text-[#059AA0] hover:border-[#059AA0] transition-all duration-300">
+          <Link to="/DoctorList" className="mr-4 bg-[#059AA0] text-white py-2 px-4 rounded border-2 border-transparent hover:bg-white hover:text-[#059AA0] hover:border-[#059AA0] transition-all duration-300">
             Doctor Appointment
-          </button>
+          </Link>
         </div>
 
         {/* Footer Notice */}

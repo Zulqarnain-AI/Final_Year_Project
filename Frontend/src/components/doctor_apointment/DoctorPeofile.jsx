@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import doctor1 from "./images/doctor1.png";
 import doctor2 from "./images/doctor2.png";
 import doctor3 from "./images/doctor3.png";
+import doctor4 from "./images/doctor4.png";
 
 // Helper function to format date for display (e.g., 2025-12-16 -> Tue, Dec 16)
 const formatDate = (dateString) => {
@@ -63,9 +64,9 @@ const mockDoctors = [
     },
     {
         id: 104,
-        name: "Dr. David Smith",
-        specialization: "Oncology",
-        image:`${doctor3}`, // Using same image for mock
+        name: "Dr. Elena Vance",
+        specialization: "Pediatrics",
+        image:`${doctor4}`, // Using same image for mock
         details: "Specializes in lung cancer treatment and research. Committed to providing compassionate and evidence-based care.",
         clinic: "BreatheWell Cancer Center",
         location: "200 Health Way",

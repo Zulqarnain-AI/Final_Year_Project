@@ -2,6 +2,7 @@ import React from 'react';
 import doctor1 from "./images/doctor1.png";
 import doctor2 from "./images/doctor2.png";
 import doctor3 from "./images/doctor3.png";
+import doctor4 from "./images/doctor4.png";
 import { useNavigate } from 'react-router-dom';
 
 // --- Mock Data (Replace with your actual API fetch) ---
@@ -14,13 +15,6 @@ const mockDoctors = [
     details: "Experienced cardiologist specializing in non-invasive procedures and preventative care.",
   },
   {
-    id: 102,
-    name: "Dr. Marcus Chen",
-    specialization: "Pediatrics",
-    image: `${doctor2}`, // Placeholder
-    details: "Passionate pediatrician focused on early childhood development and vaccinations.",
-  },
-  {
     id: 103,
     name: "Dr. Sophia Reyes",
     specialization: "Dermatology",
@@ -28,11 +22,18 @@ const mockDoctors = [
     details: "Leading dermatologist with expertise in cosmetic treatments and complex skin conditions.",
   },
   {
+    id: 102,
+    name: "Dr. Marcus Chen",
+    specialization: "Pediatrics",
+    image: `${doctor2}`, // Placeholder
+    details: "Passionate pediatrician focused on early childhood development and vaccinations.",
+  },
+  {
     id: 104,
-    name: "Dr. Sophia Reyes",
-    specialization: "Dermatology",
-    image: `${doctor3}`, // Placeholder
-    details: "Leading dermatologist with expertise in cosmetic treatments and complex skin conditions.",
+    name: "Dr. Elena Vance",
+    specialization: "Pediatrics",
+    image: `${doctor4}`, // Placeholder
+    details: "Compassionate pediatrician dedicated to comprehensive child wellness, from routine neonatal care to adolescent health management.",
   },
 ];
 // --------------------------------------------------------
