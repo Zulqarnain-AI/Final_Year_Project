@@ -2,7 +2,7 @@
 import { Link } from 'react-router-dom';
 import React from 'react';
 import { Pencil, Calendar, Mail, Phone, MapPin, Heart } from 'lucide-react';
-import profile_img from './image/doctor4.png'
+import profile_img from './image/doctor4.jpeg'
 // Sample data structure for the user
 const mockUserProfile = {
     firstName: "Amelia",
