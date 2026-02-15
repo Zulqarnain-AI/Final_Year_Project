@@ -1,76 +1,95 @@
 import { useState } from "react";
+
 export default function LoginForm({ navigate, setParentError, setParentSuccess }) {
+
     const [formData, setFormData] = useState({
         email: "",
         password: "",
-        role: "", // doctor or patient
+        role: "",
     });
+
     const [showPassword, setShowPassword] = useState(false);
-    const [localError, setLocalError] = useState(""); // Local error for internal form validation
+    const [localError, setLocalError] = useState("");
+    const [loading, setLoading] = useState(false);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
-    const handleSubmit = async (e) => { // 🌟 MAKE FUNCTION ASYNC
+    const handleSubmit = async (e) => {
         e.preventDefault();
 
-        // Simple validation
         if (!formData.email || !formData.password || !formData.role) {
             setLocalError("Please fill all fields and select your role");
             return;
         }
 
         setLocalError("");
-        setParentError(""); // Clear any general API error on new submit
-        setParentSuccess(""); // Clear any general success message
+        setParentError("");
+        setParentSuccess("");
+        setLoading(true);
 
-        // 🌟 API CALL LOGIC
         try {
             const res = await fetch("http://127.0.0.1:5000/login", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(formData), // Sending email, password, and role
+                body: JSON.stringify(formData),
             });
 
             const data = await res.json();
 
             if (!res.ok) {
-                // Handle HTTP errors (400, 401, 404, etc. from Flask)
-                setLocalError(data.error || "Login failed due to a server error.");
-            } else {
-                // 🚀 SUCCESS: Login successful
-                setParentSuccess(data.message);
-
-                // 1. Store user data 
-                localStorage.setItem('user', JSON.stringify(data.user));
-
-                // 2. Redirect to the dashboard
-                if (navigate) {
-                    navigate("/dashboard");
-                }
+                setLocalError(data.error || "Login failed.");
+                setLoading(false);
+                return;
             }
+
+            // ✅ Store token (IMPORTANT for protected routes)
+            if (data.access_token) {
+                localStorage.setItem("token", data.access_token);
+            }
+
+            // ✅ Store user if exists
+            if (data.user) {
+                localStorage.setItem("user", JSON.stringify(data.user));
+            }
+
+            setParentSuccess(data.message);
+
+            setLoading(false);
+
+            if (navigate) {
+                navigate("/dashboard");
+            }
+
         } catch (err) {
-            console.error("Network or Fetch Error:", err);
-            setLocalError("Failed to connect to the server.");
+            console.error(err);
+            setLocalError("Failed to connect to server.");
+            setLoading(false);
         }
     };
 
     return (
         <div className="bg-white px-8 py-6 rounded-2xl shadow-lg w-full max-w-md">
-            <h3 className="text-3xl text-gray-900 mb-6 text-center">Enter your credentials</h3>
+            <h3 className="text-3xl text-gray-900 mb-6 text-center">
+                Enter your credentials
+            </h3>
 
             {localError && <p className="text-red-500 text-sm mb-4">{localError}</p>}
+
             <form className="space-y-4" onSubmit={handleSubmit}>
+
                 {/* Role Selector */}
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Login as</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Login as
+                    </label>
                     <select
                         name="role"
                         value={formData.role}
                         onChange={handleChange}
-                        className="w-full bg-[#C5F2E8] text-gray-800 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        className="w-full bg-[#C5F2E8] px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                     >
                         <option value="">Select Role</option>
                         <option value="doctor">Doctor</option>
@@ -78,7 +97,7 @@ export default function LoginForm({ navigate, setParentError, setParentSuccess }
                     </select>
                 </div>
 
-                {/* Email Input */}
+                {/* Email */}
                 <div>
                     <input
                         type="email"
@@ -86,11 +105,11 @@ export default function LoginForm({ navigate, setParentError, setParentSuccess }
                         placeholder="Enter Email"
                         value={formData.email}
                         onChange={handleChange}
-                        className="w-full bg-[#C5F2E8] text-gray-800 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 placeholder-gray-500 font-medium transition"
+                        className="w-full bg-[#C5F2E8] px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                     />
                 </div>
 
-                {/* Password Input */}
+                {/* Password */}
                 <div className="relative">
                     <input
                         type={showPassword ? "text" : "password"}
@@ -98,32 +117,25 @@ export default function LoginForm({ navigate, setParentError, setParentSuccess }
                         placeholder="••••••••"
                         value={formData.password}
                         onChange={handleChange}
-                        className="w-full bg-[#C5F2E8] text-gray-800 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 placeholder-gray-500 font-medium transition"
+                        className="w-full bg-[#C5F2E8] px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                     />
                     <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-teal-500 transition text-lg"
+                        className="absolute right-4 top-1/2 -translate-y-1/2"
                     >
                         {showPassword ? "🔓" : "🔒"}
                     </button>
                 </div>
 
-                {/* Forget Password link */}
-                <div className="text-right">
-                    <button type="button" className="text-sm text-gray-600 hover:text-teal-500 transition font-medium">
-                        Forget Password?
-                    </button>
-                </div>
-
-                {/* Sign In Button */}
+                {/* Submit */}
                 <button
                     type="submit"
-                    className="w-full bg-[#059AA0] text-white font-semibold py-3 rounded-lg hover:bg-teal-600 transition duration-200 mt-2"
+                    disabled={loading}
+                    className="w-full bg-[#059AA0] text-white py-3 rounded-lg hover:bg-teal-600 transition"
                 >
-                    Sign In
+                    {loading ? "Signing In..." : "Sign In"}
                 </button>
-
 
             </form>
         </div>
