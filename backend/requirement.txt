@@ -2,3 +2,9 @@ flask
 flask-pymongo
 flask-bcrypt
 flask-cors
+librosa
+soundfile
+tensorflow
+numpy
+matplotlib
+scikit-learn

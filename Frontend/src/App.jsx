@@ -12,6 +12,10 @@ import RegisterForm from "./components/login/RegisterForm"
 import EnvironmentalAlertView from "./components/evironmentAlert/environmental_alert_view"
 import DoctorList from "./components/doctor_apointment/DoctorList"
 import DoctorProfile from "./components/doctor_apointment/DoctorPeofile"
+import DoctorDashboard from "./components/doctor_dashboard/DoctorDashboard"
+import AppointmentDetail from "./components/doctor_dashboard/AppointmentDetail"
+import DoctorProfileView from "./components/doctor_profile/DoctorProfileView"
+import DoctorProfileEdit from "./components/doctor_profile/DoctorProfileEdit"
 import CarePlanUI from "./components/care_plan/Careplan"
 import UserProfileView from "./components/profile/UserProfileView"
 import UserSettings from "./components/profile/Setting"
@@ -33,6 +37,10 @@ function App() {
           <Route path="/RegisterForm" element={<RegisterForm />} />
           <Route path="/DoctorList" element={<DoctorList />} />
           <Route path="/doctors/:id" element={<DoctorProfile />} />
+          <Route path="/doctor/dashboard" element={<DoctorDashboard />} />
+          <Route path="/doctor/appointments/:id" element={<AppointmentDetail />} />
+          <Route path="/doctor/profile" element={<DoctorProfileView />} />
+          <Route path="/doctor/profile/edit" element={<DoctorProfileEdit />} />
           <Route path="/careplan" element={<CarePlanUI />} />
           <Route path="/profile" element={<UserProfileView />} />
           <Route path="/setting" element={<UserSettings />} />

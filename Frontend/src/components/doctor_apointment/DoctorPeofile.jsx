@@ -1,9 +1,6 @@
-import React, { useState } from 'react'; // 🌟 Import useState for slot selection
+import React, { useState, useEffect } from 'react'; // 🌟 Import useState for slot selection
 import { useParams, useNavigate } from 'react-router-dom';
-import doctor1 from "./images/doctor1.png";
-import doctor2 from "./images/doctor2.png";
-import doctor3 from "./images/doctor3.png";
-import doctor4 from "./images/doctor4.png";
+import axios from 'axios';
 
 // Helper function to format date for display (e.g., 2025-12-16 -> Tue, Dec 16)
 const formatDate = (dateString) => {
@@ -11,99 +8,70 @@ const formatDate = (dateString) => {
   return new Date(dateString).toLocaleDateString('en-US', options);
 };
 
-// --- Updated Mock Data (with new fields) ---
-const mockDoctors = [
-    {
-        id: 101,
-        name: "Dr. Eleanor Vance",
-        specialization: "Cardiology",
-        image: `${doctor1}`,
-        details: "Dr. Vance is a board-certified cardiologist with over 15 years of experience in heart health. Her focus is on preventative cardiology and stress management. She is highly rated for her empathetic approach and clear communication.",
-        clinic: "City Central Clinic",
-        location: "456 Oak Street, Suite 200",
-        rating: 4.9,
-        experience: 15, // Years of experience
-        hospitals: ["City General Hospital (Current)", "St. Jude's Medical Center (Past)"],
-        availableSlots: [
-            { date: "2025-12-16", times: ["09:00", "11:00", "14:30"] },
-            { date: "2025-12-17", times: ["10:30", "15:00"] },
-            { date: "2025-12-18", times: ["09:30", "12:00", "16:00"] },
-        ],
-    },
-    {
-        id: 102,
-        name: "Dr. Marcus Chen",
-        specialization: "Pediatrics",
-        image: `${doctor2}`,
-        details: "A beloved pediatrician, Dr. Chen cares for patients from newborn to young adult. He emphasizes a holistic approach to child wellness and is fluent in English and Mandarin.",
-        clinic: "Family Wellness Center",
-        location: "789 Pine Ave, Ground Floor",
-        rating: 4.7,
-        experience: 8,
-        hospitals: ["Children's Metro Clinic", "Newborn Care Institute"],
-        availableSlots: [
-            { date: "2025-12-16", times: ["10:00", "13:00", "16:00"] },
-            { date: "2025-12-17", times: ["09:00", "11:30", "14:00"] },
-        ],
-    },
-    {
-        id: 103,
-        name: "Dr. Sophia Reyes",
-        specialization: "Dermatology",
-        image:`${doctor3}`,
-        details: "Dr. Reyes is a leader in cosmetic and medical dermatology. She offers personalized treatment plans for acne, aging, and complex skin disorders, utilizing the latest laser technology.",
-        clinic: "Advanced Skin Solutions",
-        location: "101 Elm Blvd, 5th Floor",
-        rating: 5.0,
-        experience: 22,
-        hospitals: ["Private Dermatology Practice"],
-        availableSlots: [
-            { date: "2025-12-17", times: ["14:00", "16:30"] },
-            { date: "2025-12-18", times: ["10:00", "11:00", "15:00"] },
-        ],
-    },
-    {
-        id: 104,
-        name: "Dr. Elena Vance",
-        specialization: "Pediatrics",
-        image:`${doctor4}`, // Using same image for mock
-        details: "Specializes in lung cancer treatment and research. Committed to providing compassionate and evidence-based care.",
-        clinic: "BreatheWell Cancer Center",
-        location: "200 Health Way",
-        rating: 4.8,
-        experience: 12,
-        hospitals: ["Cancer Research Hospital", "Regional Oncology Center"],
-        availableSlots: [
-            { date: "2025-12-19", times: ["09:00", "10:00", "11:00"] },
-            { date: "2025-12-20", times: ["13:00", "14:00"] },
-        ],
-    },
-];
-// --------------------------------------------------------
+// will fetch doctor data from backend
 
 function DoctorProfile() {
     const { id } = useParams();
     const navigate = useNavigate();
-    
-    // 🌟 State for selected date and time
+
+    const [doctor, setDoctor] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedTime, setSelectedTime] = useState(null);
 
-    const doctor = mockDoctors.find(d => d.id === parseInt(id));
+    useEffect(() => {
+        let mounted = true;
+        const fetchDoctor = async () => {
+            setLoading(true);
+            try {
+                const res = await axios.get(`http://localhost:5000/doctors/${id}`);
+                if (mounted) setDoctor(res.data);
+            } catch (err) {
+                console.error('Error fetching doctor', err);
+                if (mounted) setError(err);
+            } finally {
+                if (mounted) setLoading(false);
+            }
+        };
+        fetchDoctor();
+        return () => { mounted = false };
+    }, [id]);
 
-    if (!doctor) {
-        return <div className="p-8 text-center text-red-600">Doctor not found!</div>;
-    }
+    if (loading) return <div className="p-8">Loading doctor...</div>;
+    if (error || !doctor) return <div className="p-8 text-center text-red-600">Doctor not found!</div>;
 
-    const handleSendRequest = () => {
+    const handleSendRequest = async () => {
         if (!selectedDate || !selectedTime) {
             alert("Please select a date and time slot before sending a request.");
             return;
         }
 
-        alert(`Appointment request sent to ${doctor.name} for ${selectedDate} at ${selectedTime}!`);
-        // Navigate or show success message after API call
-        // navigate('/appointment-confirmation');
+        try {
+            const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+            if (!token) {
+                alert('You must be logged in as a patient to request an appointment.');
+                navigate('/login');
+                return;
+            }
+
+            const payload = {
+                doctorId: doctor.id,
+                date: selectedDate,
+                time: selectedTime,
+                notes: ''
+            };
+
+            const res = await axios.post('http://localhost:5000/appointments', payload, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            alert('Appointment request sent successfully.');
+            navigate('/dashboard');
+        } catch (err) {
+            console.error('Error sending appointment request', err);
+            alert('Failed to send appointment request');
+        }
     };
 
     return (
@@ -159,7 +127,7 @@ function DoctorProfile() {
                                 </span>
                             </p>
                             <ul className="list-disc list-inside ml-4 text-gray-600">
-                                {doctor.hospitals.map((hospital, index) => (
+                                {(doctor.hospitals || []).map((hospital, index) => (
                                     <li key={index}>{hospital}</li>
                                 ))}
                             </ul>
@@ -179,7 +147,7 @@ function DoctorProfile() {
                         
                         {/* Date Tabs (mock calendar) */}
                         <div className="flex flex-wrap gap-2">
-                            {doctor.availableSlots.map((slot) => (
+                            {doctor.availableSlots && doctor.availableSlots.map((slot) => (
                                 <button
                                     key={slot.date}
                                     onClick={() => {
@@ -195,19 +163,19 @@ function DoctorProfile() {
                                     {formatDate(slot.date)}
                                 </button>
                             ))}
-                            {!doctor.availableSlots.length && (
+                            {!(doctor.availableSlots && doctor.availableSlots.length) && (
                                 <p className='text-red-500 text-sm'>No upcoming slots available.</p>
                             )}
                         </div>
 
                         {/* Time Slots */}
-                        {selectedDate && (
+                            {selectedDate && (
                             <div className="pt-4 border-t mt-4">
                                 <p className="font-semibold text-gray-700 mb-3">
                                     Select Time for {formatDate(selectedDate)}:
                                 </p>
                                 <div className="flex flex-wrap gap-2">
-                                    {doctor.availableSlots.find(s => s.date === selectedDate)?.times.map((time) => (
+                                    {(doctor.availableSlots.find(s => s.date === selectedDate)?.times || []).map((time) => (
                                         <button
                                             key={time}
                                             onClick={() => setSelectedTime(time)}

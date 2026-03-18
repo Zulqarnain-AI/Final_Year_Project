@@ -47,7 +47,7 @@ export default function LoginForm({ navigate, setParentError, setParentSuccess }
 
             // ✅ Store token (IMPORTANT for protected routes)
             if (data.access_token) {
-                localStorage.setItem("token", data.access_token);
+                localStorage.setItem("access_token", data.access_token);
             }
 
             // ✅ Store user if exists
@@ -60,7 +60,10 @@ export default function LoginForm({ navigate, setParentError, setParentSuccess }
             setLoading(false);
 
             if (navigate) {
-                navigate("/dashboard");
+                // Redirect based on role
+                const role = data.user?.role;
+                if (role === 'doctor') navigate('/doctor/dashboard');
+                else navigate('/dashboard');
             }
 
         } catch (err) {
