@@ -12,6 +12,11 @@ from bson import ObjectId # type: ignore
 from config import Config
 from database import mongo
 import os
+import json
+import numpy as np
+import tensorflow as tf
+import librosa
+from tempfile import NamedTemporaryFile
 from datetime import datetime
 import logging
 
@@ -24,6 +29,130 @@ app.config.from_object(Config)
 CORS(app)
 mongo.init_app(app)
 jwt = JWTManager(app)
+
+# -------------------------------
+# Audio model inference
+# -------------------------------
+CLASS_NAMES = ["asthma", "copd", "bronchial", "pneumonia", "healthy"]
+
+SAMPLE_RATE = 22050
+DURATION = 5
+SAMPLES = SAMPLE_RATE * DURATION
+N_MELS = 128
+FMAX = 8000
+TARGET_TIME_FRAMES = 216
+
+MODEL_FILENAME = "lung_model.keras"
+MODEL_PATH = os.path.join(os.path.dirname(__file__), MODEL_FILENAME)
+
+
+def load_ml_model():
+    if os.path.exists(MODEL_PATH):
+        try:
+            return tf.keras.models.load_model(MODEL_PATH)
+        except Exception as exc:
+            logging.error(f"Unable to load model: {exc}")
+    else:
+        logging.warning(f"Model file not found: {MODEL_PATH}")
+    return None
+
+
+model = load_ml_model()
+
+
+def preprocess_audio(file_path):
+    signal, sr = librosa.load(file_path, sr=SAMPLE_RATE)
+
+    # Fix length
+    if len(signal) > SAMPLES:
+        signal = signal[:SAMPLES]
+    else:
+        signal = np.pad(signal, (0, SAMPLES - len(signal)))
+
+    # Mel Spectrogram
+    mel = librosa.feature.melspectrogram(
+        y=signal,
+        sr=sr,
+        n_mels=N_MELS,
+        fmax=FMAX
+    )
+    mel_db = librosa.power_to_db(mel, ref=np.max)
+
+    # Add delta features (VERY IMPORTANT - must match training)
+    delta = librosa.feature.delta(mel_db)
+    delta2 = librosa.feature.delta(mel_db, order=2)
+
+    # Stack → (128, time, 3)
+    feature = np.stack([mel_db, delta, delta2], axis=-1)
+
+    # Resize to match training shape
+    if feature.shape[1] < TARGET_TIME_FRAMES:
+        pad_width = TARGET_TIME_FRAMES - feature.shape[1]
+        feature = np.pad(feature, ((0, 0), (0, pad_width), (0, 0)), mode="constant")
+    elif feature.shape[1] > TARGET_TIME_FRAMES:
+        feature = feature[:, :TARGET_TIME_FRAMES, :]
+
+    # CRITICAL: Normalize using PER-SAMPLE stats (matching training preprocessing)
+    feature = (feature - np.mean(feature)) / (np.std(feature) + 1e-6)
+
+    return feature
+
+
+@app.route('/predict-audio', methods=['POST'])
+def predict_audio():
+    if model is None:
+        return jsonify({"error": "Model is not loaded. Place lung_model.keras in the Backend folder."}), 500
+
+    if "file" not in request.files:
+        return jsonify({"error": "No audio file uploaded."}), 400
+
+    uploaded_file = request.files["file"]
+
+    if uploaded_file.filename == "":
+        return jsonify({"error": "Uploaded file must have a name."}), 400
+
+    if not uploaded_file.filename.lower().endswith((".wav", ".mp3", ".flac", ".ogg", ".m4a")):
+        return jsonify({"error": "Unsupported audio format. Upload WAV or compatible audio file."}), 400
+
+    tmp_file = None
+    try:
+        with NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.filename)[1] or ".wav") as tmp:
+            uploaded_file.save(tmp.name)
+            tmp_file = tmp.name
+
+        feature = preprocess_audio(tmp_file)
+        input_tensor = np.expand_dims(feature, axis=0)
+        predictions = model.predict(input_tensor)
+        predicted_index = int(np.argmax(predictions[0]))
+        confidence = float(np.max(predictions[0]))
+        probs = {
+            CLASS_NAMES[i]: float(predictions[0][i])
+            for i in range(len(CLASS_NAMES))
+        }
+        a={
+            "prediction": CLASS_NAMES[predicted_index],
+            "confidence": confidence,
+            "probabilities": probs
+        }
+        print(a)
+
+        return jsonify({
+            "prediction": CLASS_NAMES[predicted_index],
+            "confidence": confidence,
+            "probabilities": probs
+        }), 200
+
+    except Exception as exc:
+        logging.error(f"Audio prediction failed: {exc}")
+        return jsonify({"error": "Audio prediction failed. " + str(exc)}), 500
+
+    finally:
+        if tmp_file and os.path.exists(tmp_file):
+            try:
+                os.remove(tmp_file)
+            except Exception:
+                pass
+
 
 # configure logging
 logging.basicConfig(level=logging.INFO)
@@ -509,6 +638,7 @@ def get_profile():
         "primaryPhysician": patient.get("primaryPhysician", ""),
         "lastCheckup": patient.get("lastCheckup", "")
     }
+
 
     return jsonify(profile_data), 200
 

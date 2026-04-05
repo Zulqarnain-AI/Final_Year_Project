@@ -1,0 +1,18 @@
+{
+    "sample_rate": 22050,
+    "duration": 5,
+    "samples": 110250,
+    "n_mels": 128,
+    "fmax": 8000,
+    "use_delta": true,
+    "delta_order": 2,
+    "mean": 8.15056781826172e-10,
+    "std": 0.9999999772242864,
+    "classes": [
+        "asthma",
+        "copd",
+        "Bronchial",
+        "pneumonia",
+        "healthy"
+    ]
+}
