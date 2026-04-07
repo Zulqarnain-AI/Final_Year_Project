@@ -1,14 +1,24 @@
 import React, { useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import VoiceRecorder from "./image/Mic.png";
 import FileUpload from "./image/upload file.png";
 
-const API_URL = "http://127.0.0.1:5000/predict-audio";
+const API_URL = "http://127.0.0.1:5000/diagnose";
 
 function Uploadcough() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
   const [loading, setLoading] = useState(false);
   const [file, setFile] = useState(null);
   const [prediction, setPrediction] = useState(null);
   const [error, setError] = useState("");
+
+  const routeSymptoms = location.state?.symptoms;
+  const storedSymptoms = JSON.parse(localStorage.getItem("selected_symptoms") || "[]");
+  const selectedSymptoms = Array.isArray(routeSymptoms)
+    ? routeSymptoms
+    : (Array.isArray(storedSymptoms) ? storedSymptoms : []);
 
   const handleFileChange = (event) => {
     setError("");
@@ -20,8 +30,14 @@ function Uploadcough() {
   };
 
   const handleDiagnosis = async () => {
-    if (!file) {
-      setError("Please upload a cough audio file before diagnosis.");
+    if (!file && selectedSymptoms.length === 0) {
+      setError("Please select symptoms and/or upload a cough audio file before diagnosis.");
+      return;
+    }
+
+    const token = localStorage.getItem("access_token") || localStorage.getItem("token");
+    if (!token) {
+      setError("Please login first.");
       return;
     }
 
@@ -30,11 +46,17 @@ function Uploadcough() {
     setPrediction(null);
 
     const formData = new FormData();
-    formData.append("file", file);
+    if (file) {
+      formData.append("file", file);
+    }
+    formData.append("symptoms", JSON.stringify(selectedSymptoms));
 
     try {
       const response = await fetch(API_URL, {
         method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
         body: formData,
       });
 
@@ -43,7 +65,9 @@ function Uploadcough() {
         throw new Error(data.error || "Prediction failed.");
       }
 
-      setPrediction(data);
+      localStorage.setItem("latest_diagnosis_report", JSON.stringify(data.report));
+      setPrediction(data.report);
+      navigate("/Report", { state: { report: data.report } });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -61,6 +85,9 @@ function Uploadcough() {
             </h1>
             <p className="style-poppins fon-weight-400 text-[30px]">
               Upload a sample of your cough audio for AI prediction.
+            </p>
+            <p className="text-center text-slate-600 mt-2">
+              Selected Symptoms: {selectedSymptoms.length > 0 ? selectedSymptoms.join(", ") : "None"}
             </p>
           </div>
 
@@ -108,10 +135,10 @@ function Uploadcough() {
             <div className="w-full max-w-xl bg-slate-50 border border-slate-200 rounded-xl p-5 mt-6">
               <h2 className="text-2xl font-bold mb-3 text-slate-900">Prediction Result</h2>
               <p className="text-lg">
-                <span className="font-semibold">Diagnosis:</span> {prediction.prediction}
+                <span className="font-semibold">Diagnosis:</span> {prediction.final_prediction}
               </p>
               <p className="text-lg">
-                <span className="font-semibold">Confidence:</span> {(prediction.confidence * 100).toFixed(1)}%
+                <span className="font-semibold">Confidence:</span> {(prediction.final_confidence * 100).toFixed(1)}%
               </p>
             </div>
           )}

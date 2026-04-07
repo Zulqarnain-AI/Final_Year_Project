@@ -29,6 +29,10 @@ function Herosection() {
     "Sore Throat",
   ];
 
+  const handleNext = () => {
+    localStorage.setItem("selected_symptoms", JSON.stringify(selected));
+  };
+
   return (
     <section>
       <div className="flex justify-center items-center flex-col gap-3">
@@ -55,7 +59,7 @@ function Herosection() {
           </div>
 
           <div className="relative bottom-[30px] w-[100px] left-[952px]">
-            <Link to="/Uploadcough">
+            <Link to="/Uploadcough" state={{ symptoms: selected }} onClick={handleNext}>
               <button className="px-4 py-2 bg-[#1FB8C0] hover:border-[#1FB8C0] hover:border-2 hover:bg-white hover:text-[#1FB8C0] text-white rounded-full">
                 Next ➜
               </button>
