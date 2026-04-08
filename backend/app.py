@@ -14,11 +14,20 @@ from database import mongo
 import os
 import json
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 import librosa
 from tempfile import NamedTemporaryFile
 from datetime import datetime
 import logging
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.ensemble import RandomForestClassifier
+
+import joblib
 
 # -------------------------------
 # App Setup
@@ -44,6 +53,18 @@ TARGET_TIME_FRAMES = 216
 
 MODEL_FILENAME = "lung_model.keras"
 MODEL_PATH = os.path.join(os.path.dirname(__file__), MODEL_FILENAME)
+SYMPTOMS_MODEL_FILENAME = "symptoms_model_pipeline.pkl"
+SYMPTOMS_MODEL_PATH = os.path.join(os.path.dirname(__file__), SYMPTOMS_MODEL_FILENAME)
+
+CANONICAL_CLASS_NAMES = ["asthma", "copd", "bronchial", "pneumonia", "healthy"]
+LABEL_ALIASES = {
+    "asthma": "asthma",
+    "copd": "copd",
+    "bronchial": "bronchial",
+    "bronchitis": "bronchial",
+    "pneumonia": "pneumonia",
+    "healthy": "healthy"
+}
 
 
 def load_ml_model():
@@ -58,6 +79,147 @@ def load_ml_model():
 
 
 model = load_ml_model()
+
+
+def load_symptoms_model():
+    if os.path.exists(SYMPTOMS_MODEL_PATH):
+        try:
+            return joblib.load(SYMPTOMS_MODEL_PATH)
+        except Exception as exc:
+            logging.error(f"Unable to load symptoms model: {exc}")
+    else:
+        logging.warning(f"Symptoms model file not found: {SYMPTOMS_MODEL_PATH}")
+    return None
+
+
+symptoms_model = load_symptoms_model()
+
+
+def normalize_label(label):
+    cleaned = str(label).strip().lower()
+    return LABEL_ALIASES.get(cleaned, cleaned)
+
+
+def normalize_probability_map(probabilities):
+    normalized = {name: 0.0 for name in CANONICAL_CLASS_NAMES}
+    for label, value in probabilities.items():
+        mapped = normalize_label(label)
+        if mapped in normalized:
+            normalized[mapped] = float(value)
+    return normalized
+
+
+def predict_symptoms(symptoms_list, age, sex):
+    if symptoms_model is None:
+        raise RuntimeError("Symptoms model is not loaded.")
+
+    symptoms_text = " ".join(symptoms_list).strip() if isinstance(symptoms_list, list) else str(symptoms_list)
+    input_df = pd.DataFrame({
+        "Symptoms": [symptoms_text],
+        "Age": [float(age)],
+        "Sex": [str(sex)]
+    })
+
+    prediction = symptoms_model.predict(input_df)[0]
+    raw_probs = {}
+    if hasattr(symptoms_model, "predict_proba"):
+        prob_values = symptoms_model.predict_proba(input_df)[0]
+        for cls, prob in zip(symptoms_model.classes_, prob_values):
+            raw_probs[str(cls)] = float(prob)
+
+    symptom_probs = normalize_probability_map(raw_probs)
+    predicted_label = normalize_label(prediction)
+    confidence = symptom_probs.get(predicted_label, 0.0)
+
+    return {
+        "prediction": predicted_label,
+        "confidence": float(confidence),
+        "probabilities": symptom_probs,
+        "symptoms_text": symptoms_text
+    }
+
+
+def combine_probabilities(audio_probs, symptom_probs, audio_weight=0.65):
+    combined = {}
+    for label in CANONICAL_CLASS_NAMES:
+        combined[label] = (
+            audio_weight * float(audio_probs.get(label, 0.0))
+            + (1 - audio_weight) * float(symptom_probs.get(label, 0.0))
+        )
+    return combined
+
+
+def compute_severity(prediction, confidence, symptom_count):
+    if prediction == "healthy":
+        return "Low"
+    if confidence >= 0.8 or symptom_count >= 5:
+        return "Severe"
+    if confidence >= 0.55 or symptom_count >= 3:
+        return "Moderate"
+    return "Mild"
+
+
+def ensure_human_id_for_user(user_doc, collection, prefix, field_name):
+    human_id = user_doc.get(field_name)
+    if human_id:
+        return human_id
+
+    generated_id = generate_human_id(collection, prefix)
+    try:
+        collection.update_one({"_id": user_doc.get("_id")}, {"$set": {field_name: generated_id}})
+    except Exception:
+        pass
+    return generated_id
+
+
+def resolve_patient_human_id(report_doc):
+    existing = report_doc.get("patientId")
+    if existing:
+        return existing
+
+    patient_object_id = report_doc.get("patient_id")
+    if not patient_object_id:
+        return None
+
+    patient = None
+    try:
+        patient = patients_collection.find_one({"_id": ObjectId(patient_object_id)})
+    except Exception:
+        patient = None
+
+    if not patient:
+        return None
+
+    patient_id = ensure_human_id_for_user(patient, patients_collection, "P", "patientId")
+
+    try:
+        reports_collection.update_one(
+            {"_id": report_doc.get("_id")},
+            {"$set": {"patientId": patient_id}}
+        )
+    except Exception:
+        pass
+
+    return patient_id
+
+
+def serialize_report(report_doc):
+    patient_human_id = resolve_patient_human_id(report_doc)
+    return {
+        "id": str(report_doc.get("_id")),
+        "patient_id": report_doc.get("patient_id"),
+        "patientId": patient_human_id,
+        "symptoms": report_doc.get("symptoms", []),
+        "age": report_doc.get("age"),
+        "sex": report_doc.get("sex"),
+        "audio_prediction": report_doc.get("audio_prediction"),
+        "symptom_prediction": report_doc.get("symptom_prediction"),
+        "final_prediction": report_doc.get("final_prediction"),
+        "final_confidence": report_doc.get("final_confidence"),
+        "final_probabilities": report_doc.get("final_probabilities"),
+        "severity": report_doc.get("severity"),
+        "created_at": report_doc.get("created_at").isoformat() if report_doc.get("created_at") else None,
+    }
 
 
 def preprocess_audio(file_path):
@@ -111,12 +273,12 @@ def predict_audio():
     if uploaded_file.filename == "":
         return jsonify({"error": "Uploaded file must have a name."}), 400
 
-    if not uploaded_file.filename.lower().endswith((".wav", ".mp3", ".flac", ".ogg", ".m4a")):
+    if not uploaded_file.filename.lower().endswith((".wav", ".mp3", ".flac", ".ogg", ".m4a")): # type: ignore
         return jsonify({"error": "Unsupported audio format. Upload WAV or compatible audio file."}), 400
 
     tmp_file = None
     try:
-        with NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.filename)[1] or ".wav") as tmp:
+        with NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.filename)[1] or ".wav") as tmp: # type: ignore
             uploaded_file.save(tmp.name)
             tmp_file = tmp.name
 
@@ -152,6 +314,156 @@ def predict_audio():
                 os.remove(tmp_file)
             except Exception:
                 pass
+
+
+@app.route('/diagnose', methods=['POST'])
+@jwt_required()
+def diagnose():
+    claims = get_jwt()
+    role = claims.get("role")
+    if role != "patient":
+        return jsonify({"error": "Only patients can create diagnosis reports"}), 403
+
+    user_id = get_jwt_identity()
+    patient = patients_collection.find_one({"_id": ObjectId(user_id)})
+    if not patient:
+        return jsonify({"error": "Patient not found"}), 404
+
+    patient_human_id = ensure_human_id_for_user(patient, patients_collection, "P", "patientId")
+
+    symptoms_raw = request.form.get("symptoms", "[]")
+    try:
+        symptoms = json.loads(symptoms_raw) if symptoms_raw else []
+    except Exception:
+        symptoms = [s.strip() for s in symptoms_raw.split(",") if s.strip()]
+
+    if not isinstance(symptoms, list):
+        symptoms = []
+
+    symptoms = [str(item).strip() for item in symptoms if str(item).strip()]
+
+    age = request.form.get("age") or patient.get("age")
+    sex = request.form.get("sex") or patient.get("gender")
+
+    uploaded_file = request.files.get("file")
+
+    if not symptoms and not uploaded_file:
+        return jsonify({"error": "Provide at least symptoms or an audio file."}), 400
+
+    audio_result = None
+    symptom_result = None
+
+    if uploaded_file is not None:
+        if model is None:
+            return jsonify({"error": "Audio model is not loaded."}), 500
+        if uploaded_file.filename == "":
+            return jsonify({"error": "Uploaded file must have a name."}), 400
+        if not uploaded_file.filename.lower().endswith((".wav", ".mp3", ".flac", ".ogg", ".m4a")): # type: ignore
+            return jsonify({"error": "Unsupported audio format."}), 400
+
+        tmp_file = None
+        try:
+            with NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.filename)[1] or ".wav") as tmp: # type: ignore
+                uploaded_file.save(tmp.name)
+                tmp_file = tmp.name
+
+            feature = preprocess_audio(tmp_file)
+            input_tensor = np.expand_dims(feature, axis=0)
+            predictions = model.predict(input_tensor)
+            predicted_index = int(np.argmax(predictions[0]))
+            probs = {CLASS_NAMES[i]: float(predictions[0][i]) for i in range(len(CLASS_NAMES))}
+            normalized_probs = normalize_probability_map(probs)
+            predicted_label = normalize_label(CLASS_NAMES[predicted_index])
+
+            audio_result = {
+                "prediction": predicted_label,
+                "confidence": float(np.max(predictions[0])),
+                "probabilities": normalized_probs,
+                "file_name": uploaded_file.filename
+            }
+        finally:
+            if tmp_file and os.path.exists(tmp_file):
+                try:
+                    os.remove(tmp_file)
+                except Exception:
+                    pass
+
+    if symptoms:
+        if symptoms_model is None:
+            return jsonify({"error": "Symptoms model is not loaded."}), 500
+        if age is None or sex is None:
+            return jsonify({"error": "Age and sex are required for symptom analysis."}), 400
+        symptom_result = predict_symptoms(symptoms, age, sex)
+
+    if audio_result and symptom_result:
+        final_probs = combine_probabilities(audio_result["probabilities"], symptom_result["probabilities"])
+    elif audio_result:
+        final_probs = audio_result["probabilities"]
+    else:
+        final_probs = symptom_result["probabilities"] # type: ignore
+
+    final_prediction = max(final_probs, key=final_probs.get) # type: ignore
+    final_confidence = float(final_probs[final_prediction])
+    severity = compute_severity(final_prediction, final_confidence, len(symptoms))
+
+    report_doc = {
+        "patient_id": str(patient.get("_id")),
+        "patientId": patient_human_id,
+        "symptoms": symptoms,
+        "age": int(float(age)) if age is not None else None,
+        "sex": str(sex) if sex is not None else None,
+        "audio_prediction": audio_result,
+        "symptom_prediction": symptom_result,
+        "final_prediction": final_prediction,
+        "final_confidence": final_confidence,
+        "final_probabilities": final_probs,
+        "severity": severity,
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow()
+    }
+
+    inserted = reports_collection.insert_one(report_doc)
+    report_doc["_id"] = inserted.inserted_id
+
+    return jsonify({
+        "message": "Diagnosis report created successfully",
+        "report_id": str(inserted.inserted_id),
+        "report": serialize_report(report_doc)
+    }), 201
+
+
+@app.route('/reports/latest', methods=['GET'])
+@jwt_required()
+def get_latest_report():
+    claims = get_jwt()
+    role = claims.get("role")
+    if role != "patient":
+        return jsonify({"error": "Only patients can access reports"}), 403
+
+    user_id = get_jwt_identity()
+    report = reports_collection.find_one({"patient_id": user_id}, sort=[("created_at", -1)])
+    if not report:
+        return jsonify({"error": "No report found"}), 404
+
+    return jsonify(serialize_report(report)), 200
+
+
+@app.route('/reports/patient', methods=['GET'])
+@jwt_required()
+def get_patient_reports():
+    claims = get_jwt()
+    role = claims.get("role")
+    if role != "patient":
+        return jsonify({"error": "Only patients can access reports"}), 403
+
+    user_id = get_jwt_identity()
+    reports_cursor = reports_collection.find(
+        {"patient_id": user_id},
+        sort=[("created_at", -1)]
+    )
+
+    reports = [serialize_report(report) for report in reports_cursor]
+    return jsonify({"reports": reports, "count": len(reports)}), 200
 
 
 # configure logging
@@ -238,6 +550,13 @@ def register():
         "allergies": "",
         "primaryPhysician": "",
         "lastCheckup": "",
+        "emergencyContact": "",
+        "medicalConditions": "",
+        "languages": [],
+        "profileImage": "",
+        "qualification": "",
+        "department": "",
+        "hospitals": [],
 
         "created_at": datetime.utcnow()
     }
@@ -272,6 +591,13 @@ def login():
 
     if not check_password_hash(user["password"], password):
         return jsonify({"error": "Incorrect password"}), 401
+
+    if role == "patient":
+        human_id = ensure_human_id_for_user(user, patients_collection, "P", "patientId")
+        user["patientId"] = human_id
+    else:
+        human_id = ensure_human_id_for_user(user, doctors_collection, "D", "doctorId")
+        user["doctorId"] = human_id
 
     # Use a string identity (user id) and put other fields into additional claims.
     access_token = create_access_token(
@@ -351,8 +677,14 @@ def list_doctors():
             "specialization": d.get("specialization", ""),
             "bio": d.get("bio", ""),
             "clinics": d.get("clinics", []),
+            "hospitals": d.get("hospitals", []),
             "availableSlots": d.get("availableSlots", []),
-            "rating": d.get("rating", 0)
+            "profileImage": d.get("profileImage", ""),
+            "rating": d.get("rating", 0),
+            "experience": d.get("experience", ""),
+            "qualification": d.get("qualification", ""),
+            "department": d.get("department", ""),
+            "languages": d.get("languages", [])
         })
     return jsonify(doctors), 200
 
@@ -383,8 +715,14 @@ def get_doctor(doctor_identifier):
         "specialization": doctor.get("specialization", ""),
         "bio": doctor.get("bio", ""),
         "clinics": doctor.get("clinics", []),
+        "hospitals": doctor.get("hospitals", []),
         "availableSlots": doctor.get("availableSlots", []),
-        "rating": doctor.get("rating", 0)
+        "profileImage": doctor.get("profileImage", ""),
+        "rating": doctor.get("rating", 0),
+        "experience": doctor.get("experience", ""),
+        "qualification": doctor.get("qualification", ""),
+        "department": doctor.get("department", ""),
+        "languages": doctor.get("languages", [])
     }
 
     return jsonify(doc), 200
@@ -558,7 +896,12 @@ def get_doctor_profile():
         'dob': doctor.get('dob', ''),
         'address': doctor.get('address', ''),
         'experience': doctor.get('experience', ''),
-        'rating': doctor.get('rating', 0)
+        'rating': doctor.get('rating', 0),
+        'qualification': doctor.get('qualification', ''),
+        'department': doctor.get('department', ''),
+        'languages': doctor.get('languages', []),
+        'hospitals': doctor.get('hospitals', []),
+        'profileImage': doctor.get('profileImage', '')
     }
     return jsonify(profile), 200
 
@@ -576,7 +919,7 @@ def update_doctor_profile():
     data = request.get_json() or {}
     update_fields = {}
     # allow updates to common fields
-    for field in ['firstName', 'lastName', 'fullName', 'specialization', 'bio', 'phone', 'dob', 'address', 'experience', 'rating']:
+    for field in ['firstName', 'lastName', 'fullName', 'specialization', 'bio', 'phone', 'dob', 'address', 'experience', 'rating', 'qualification', 'department', 'profileImage']:
         if field in data:
             update_fields[field] = data.get(field)
 
@@ -585,6 +928,10 @@ def update_doctor_profile():
         update_fields['clinics'] = data.get('clinics')
     if 'availableSlots' in data:
         update_fields['availableSlots'] = data.get('availableSlots')
+    if 'languages' in data:
+        update_fields['languages'] = data.get('languages')
+    if 'hospitals' in data:
+        update_fields['hospitals'] = data.get('hospitals')
 
     if update_fields:
         doctors_collection.update_one({'_id': ObjectId(user_id)}, {'$set': update_fields})
@@ -619,9 +966,23 @@ def get_profile():
     first_name = patient.get("firstName") or (patient.get("fullName", "").split(" ", 1)[0] if patient.get("fullName") else "")
     last_name = patient.get("lastName") or (patient.get("fullName", "").split(" ", 1)[1] if (patient.get("fullName") and " " in patient.get("fullName")) else "")
 
+    patient_human_id = ensure_human_id_for_user(patient, patients_collection, "P", "patientId")
+    latest_report = reports_collection.find_one({"patient_id": user_id}, sort=[("created_at", -1)])
+
+    current_condition = patient.get("medicalConditions", "")
+    if not current_condition and latest_report:
+        current_condition = str(latest_report.get("final_prediction", "")).replace("_", " ").title()
+
+    last_checkup = patient.get("lastCheckup", "")
+    if (not last_checkup) and latest_report and latest_report.get("created_at"):
+        try:
+            last_checkup = latest_report.get("created_at").date().isoformat()
+        except Exception:
+            last_checkup = ""
+
     profile_data = {
         "id": str(patient["_id"]),
-        "patientId": patient.get("patientId") or str(patient.get("_id")),
+        "patientId": patient_human_id,
         "firstName": first_name,
         "lastName": last_name,
         "fullName": patient.get("fullName", ""),
@@ -636,7 +997,13 @@ def get_profile():
         "bloodGroup": patient.get("bloodGroup", ""),
         "allergies": patient.get("allergies", ""),
         "primaryPhysician": patient.get("primaryPhysician", ""),
-        "lastCheckup": patient.get("lastCheckup", "")
+        "lastCheckup": last_checkup,
+        "emergencyContact": patient.get("emergencyContact", ""),
+        "medicalConditions": patient.get("medicalConditions", ""),
+        "currentMedicalCondition": current_condition,
+        "lastDiagnosisDate": latest_report.get("created_at").isoformat() if latest_report and latest_report.get("created_at") else None,
+        "languages": patient.get("languages", []),
+        "profileImage": patient.get("profileImage", "")
     }
 
 
@@ -677,10 +1044,17 @@ def update_profile():
         if fn or ln:
             update_fields["fullName"] = " ".join([p for p in [fn, ln] if p])
 
+    for field in ["age", "gender", "height", "weight"]:
+        if data.get(field) is not None:
+            update_fields[field] = data.get(field)
+
     # other profile fields
-    for field in ["phone", "dob", "address", "bloodGroup", "allergies", "primaryPhysician", "lastCheckup"]:
+    for field in ["phone", "dob", "address", "bloodGroup", "allergies", "primaryPhysician", "lastCheckup", "emergencyContact", "medicalConditions", "profileImage"]:
         if field in data:
             update_fields[field] = data.get(field)
+
+    if "languages" in data:
+        update_fields["languages"] = data.get("languages")
 
     if update_fields:
         patients_collection.update_one(
@@ -698,7 +1072,7 @@ def update_profile():
 if __name__ == '__main__':
     # Log registered routes for debugging
     for rule in app.url_map.iter_rules():
-        logging.info(f"Route: {rule} -> methods={','.join(sorted(rule.methods))}")
+        logging.info(f"Route: {rule} -> methods={','.join(sorted(rule.methods))}") # type: ignore
 
     app.run(debug=True, port=5000)
 

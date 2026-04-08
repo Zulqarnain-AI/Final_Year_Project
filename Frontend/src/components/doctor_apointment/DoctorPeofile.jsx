@@ -1,14 +1,52 @@
-import React, { useState, useEffect } from 'react'; // 🌟 Import useState for slot selection
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-// Helper function to format date for display (e.g., 2025-12-16 -> Tue, Dec 16)
 const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const parsed = new Date(dateString);
+    if (Number.isNaN(parsed.getTime())) return dateString;
   const options = { weekday: 'short', month: 'short', day: 'numeric' };
-  return new Date(dateString).toLocaleDateString('en-US', options);
+    return parsed.toLocaleDateString('en-US', options);
 };
 
-// will fetch doctor data from backend
+const getDoctorName = (doctor) => {
+    if (doctor?.fullName && doctor.fullName.trim()) return doctor.fullName;
+    return `${doctor?.firstName || ''} ${doctor?.lastName || ''}`.trim() || 'Doctor';
+};
+
+const formatExperience = (experience) => {
+        if (experience === null || experience === undefined || experience === '') return 'N/A';
+        return `${experience} Years`;
+};
+
+const formatRating = (rating) => {
+        if (rating === null || rating === undefined || rating === '') return 'N/A';
+        return Number.isFinite(Number(rating)) ? Number(rating).toFixed(1) : rating;
+};
+
+const firstNonEmpty = (...values) => {
+    for (const value of values) {
+        if (value === null || value === undefined) continue;
+        if (Array.isArray(value)) {
+            if (value.length > 0) return value;
+            continue;
+        }
+        if (String(value).trim() !== '') return value;
+    }
+    return '';
+};
+
+const normalizeList = (value) => {
+    if (Array.isArray(value)) return value.filter(Boolean);
+    if (typeof value === 'string') {
+        return value
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean);
+    }
+    return [];
+};
 
 function DoctorProfile() {
     const { id } = useParams();
@@ -41,6 +79,11 @@ function DoctorProfile() {
     if (loading) return <div className="p-8">Loading doctor...</div>;
     if (error || !doctor) return <div className="p-8 text-center text-red-600">Doctor not found!</div>;
 
+    const doctorExperience = firstNonEmpty(doctor.experience, doctor.yearsOfExperience, doctor.experienceYears);
+    const doctorQualification = firstNonEmpty(doctor.qualification, doctor.qualifications, doctor.education);
+    const doctorDepartment = firstNonEmpty(doctor.department, doctor.specialization, doctor.speciality);
+    const doctorLanguages = normalizeList(firstNonEmpty(doctor.languages, doctor.language, doctor.spokenLanguages));
+
     const handleSendRequest = async () => {
         if (!selectedDate || !selectedTime) {
             alert("Please select a date and time slot before sending a request.");
@@ -56,7 +99,7 @@ function DoctorProfile() {
             }
 
             const payload = {
-                doctorId: doctor.id,
+                doctorId: doctor.doctorId || doctor.id,
                 date: selectedDate,
                 time: selectedTime,
                 notes: ''
@@ -89,48 +132,60 @@ function DoctorProfile() {
                     {/* Profile Summary & Rating */}
                     <div className="flex flex-col md:flex-row gap-6 items-center md:items-start bg-white p-6 rounded-xl shadow-md border-t-4 border-teal-500">
                         <img 
-                            src={doctor.image} 
-                            alt={doctor.name} 
+                            src={doctor.profileImage || 'https://placehold.co/160x160?text=Doctor'} 
+                            alt={getDoctorName(doctor)} 
                             className="w-32 h-32 object-cover rounded-full border-4 border-gray-100 shadow-lg" 
                         />
                         <div className="text-center md:text-left">
-                            <h2 className="text-3xl font-bold text-gray-800">{doctor.name}</h2>
-                            <p className="text-xl text-teal-600 font-semibold mb-2">{doctor.specialization}</p>
+                            <h2 className="text-3xl font-bold text-gray-800">{getDoctorName(doctor)}</h2>
+                            <p className="text-xl text-teal-600 font-semibold mb-2">{doctor.specialization || 'General Physician'}</p>
                             <p className="text-gray-600">
-                                <span className="font-bold">{doctor.experience} Years</span> of Experience
+                                <span className="font-bold">{formatExperience(doctorExperience)}</span> of Experience
                             </p>
                             <div className="text-lg text-yellow-500 flex items-center justify-center md:justify-start mt-2">
-                                <span className="text-1xl mr-1">⭐</span> {doctor.rating} / 5.0
+                                <span className="text-1xl mr-1">⭐</span> {formatRating(doctor.rating)} / 5.0
                             </div>
+                            <p className="text-sm text-gray-500 mt-2">Doctor ID: {doctor.doctorId || 'N/A'}</p>
                         </div>
                     </div>
 
-                    {/* 🌟 New Content: About & Experience/Hospitals */}
                     <div className="bg-white p-6 rounded-xl shadow-md space-y-6">
                         <h3 className="text-2xl font-semibold text-gray-700 border-b pb-2">About the Doctor</h3>
-                        <p className="text-gray-700 leading-relaxed italic">{doctor.details}</p>
+                        <p className="text-gray-700 leading-relaxed italic">{doctor.bio || 'No additional bio details available.'}</p>
 
                         <div className="pt-4 border-t">
                             <h3 className="text-2xl font-semibold text-gray-700 mb-3">Working Places</h3>
                             
-                            {/* Personal Clinic */}
-                            <p className="text-lg font-medium text-gray-700 flex items-center gap-2">
+                            <p className="text-base font-medium text-gray-700 flex items-center gap-2">
                                 <span className="text-teal-500 text-xl">🏥</span> 
-                                <span className="font-bold text-gray-800">Personal Clinic:</span> {doctor.clinic} ({doctor.location})
+                                <span className="font-bold text-gray-800">Clinics:</span> {(doctor.clinics || []).join(', ') || 'N/A'}
                             </p>
 
-                            {/* Current/Past Hospitals */}
-                            <p className="text-lg font-medium text-gray-700 mt-2">
+                            <p className="text-base font-medium text-gray-700 mt-2">
+                                <span className="font-bold text-gray-800">Qualification:</span> {doctorQualification || 'N/A'}
+                            </p>
+                            <p className="text-base font-medium text-gray-700 mt-1">
+                                <span className="font-bold text-gray-800">Department:</span> {doctorDepartment || 'N/A'}
+                            </p>
+                            <p className="text-base font-medium text-gray-700 mt-1">
+                                <span className="font-bold text-gray-800">Languages:</span> {doctorLanguages.join(', ') || 'N/A'}
+                            </p>
+
+                            <p className="text-base font-medium text-gray-700 mt-2">
                                 <span className="font-bold text-gray-800 flex items-center gap-2">
                                     <span className="text-teal-500 text-xl">🏢</span> 
                                     Affiliated Hospitals:
                                 </span>
                             </p>
-                            <ul className="list-disc list-inside ml-4 text-gray-600">
-                                {(doctor.hospitals || []).map((hospital, index) => (
-                                    <li key={index}>{hospital}</li>
-                                ))}
-                            </ul>
+                            {(doctor.hospitals || []).length > 0 ? (
+                                <ul className="list-disc list-inside ml-4 text-gray-600">
+                                    {(doctor.hospitals || []).map((hospital, index) => (
+                                        <li key={index}>{hospital}</li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <p className="ml-4 text-gray-600">N/A</p>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -141,11 +196,9 @@ function DoctorProfile() {
                         <span className='mr-2'>🗓️</span> Book an Appointment
                     </h3>
                     
-                    {/* 🌟 New Content: Availability Calendar */}
                     <div className="space-y-4">
                         <p className="font-semibold text-gray-700">Select Date:</p>
                         
-                        {/* Date Tabs (mock calendar) */}
                         <div className="flex flex-wrap gap-2">
                             {doctor.availableSlots && doctor.availableSlots.map((slot) => (
                                 <button
@@ -168,7 +221,6 @@ function DoctorProfile() {
                             )}
                         </div>
 
-                        {/* Time Slots */}
                             {selectedDate && (
                             <div className="pt-4 border-t mt-4">
                                 <p className="font-semibold text-gray-700 mb-3">
@@ -193,10 +245,8 @@ function DoctorProfile() {
                         )}
                     </div>
                     
-                    {/* Send Request Button */}
                     <button
                         onClick={handleSendRequest}
-                        // Disable button if date or time is not selected
                         disabled={!selectedDate || !selectedTime}
                         className={`mt-8 w-full text-lg px-8 py-3 rounded-xl font-bold transition duration-300 shadow-lg ${
                             selectedDate && selectedTime 
@@ -207,10 +257,9 @@ function DoctorProfile() {
                         Send Appointment Request
                     </button>
                     
-                    {/* Display Selected Slot */}
                     {(selectedDate && selectedTime) && (
                         <p className="text-center text-sm text-gray-600 mt-4 p-2 bg-teal-50 rounded">
-                            Selected: **{formatDate(selectedDate)}** at **{selectedTime}**
+                            Selected: <span className="font-semibold">{formatDate(selectedDate)}</span> at <span className="font-semibold">{selectedTime}</span>
                         </p>
                     )}
 

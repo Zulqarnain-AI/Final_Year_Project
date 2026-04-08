@@ -52,6 +52,21 @@ export default function LoginForm({ navigate, setParentError, setParentSuccess }
 
             // ✅ Store user if exists
             if (data.user) {
+                const previousRawUser = localStorage.getItem("user");
+                let previousUser = null;
+                try {
+                    previousUser = previousRawUser ? JSON.parse(previousRawUser) : null;
+                } catch {
+                    previousUser = null;
+                }
+
+                if (previousUser?.id && previousUser.id !== data.user?.id) {
+                    localStorage.removeItem(`latest_diagnosis_report_${previousUser.id}`);
+                    localStorage.removeItem(`selected_symptoms_${previousUser.id}`);
+                }
+
+                localStorage.removeItem("latest_diagnosis_report");
+                localStorage.removeItem("selected_symptoms");
                 localStorage.setItem("user", JSON.stringify(data.user));
             }
 

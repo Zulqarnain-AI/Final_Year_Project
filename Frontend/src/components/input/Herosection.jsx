@@ -6,6 +6,17 @@ function Herosection() {
   // ✅ Initialize selected as an array for multi-select
   const [selected, setSelected] = useState([]);
 
+  const getSymptomStorageKey = () => {
+    const rawUser = localStorage.getItem("user");
+    if (!rawUser) return "selected_symptoms";
+    try {
+      const user = JSON.parse(rawUser);
+      return user?.id ? `selected_symptoms_${user.id}` : "selected_symptoms";
+    } catch {
+      return "selected_symptoms";
+    }
+  };
+
   // ✅ Toggle function for multi-select
   const toggleSymptom = (symptom) => {
     if (selected.includes(symptom)) {
@@ -30,7 +41,8 @@ function Herosection() {
   ];
 
   const handleNext = () => {
-    localStorage.setItem("selected_symptoms", JSON.stringify(selected));
+    const storageKey = getSymptomStorageKey();
+    localStorage.setItem(storageKey, JSON.stringify(selected));
   };
 
   return (

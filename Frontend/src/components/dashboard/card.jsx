@@ -28,6 +28,12 @@ const features = [
     link: "/careplan"
   },
   {
+    icon: FileText,
+    title: "Diagnosis History",
+    description: "View all your past diagnosis reports and trends",
+    link: "/history"
+  },
+  {
     icon: Hospital,
     title: "Doctor Appointment",
     description: "Schedule an appointment with a doctor by sending an appointment request",

@@ -5,6 +5,20 @@ import FileUpload from "./image/upload file.png";
 
 const API_URL = "http://127.0.0.1:5000/diagnose";
 
+function getCurrentUser() {
+  const rawUser = localStorage.getItem("user");
+  if (!rawUser) return null;
+  try {
+    return JSON.parse(rawUser);
+  } catch {
+    return null;
+  }
+}
+
+function getPatientScopedKey(baseKey, user) {
+  return user?.id ? `${baseKey}_${user.id}` : baseKey;
+}
+
 function Uploadcough() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -14,8 +28,12 @@ function Uploadcough() {
   const [prediction, setPrediction] = useState(null);
   const [error, setError] = useState("");
 
+  const currentUser = getCurrentUser();
+  const symptomsStorageKey = getPatientScopedKey("selected_symptoms", currentUser);
+  const reportStorageKey = getPatientScopedKey("latest_diagnosis_report", currentUser);
+
   const routeSymptoms = location.state?.symptoms;
-  const storedSymptoms = JSON.parse(localStorage.getItem("selected_symptoms") || "[]");
+  const storedSymptoms = JSON.parse(localStorage.getItem(symptomsStorageKey) || "[]");
   const selectedSymptoms = Array.isArray(routeSymptoms)
     ? routeSymptoms
     : (Array.isArray(storedSymptoms) ? storedSymptoms : []);
@@ -65,7 +83,8 @@ function Uploadcough() {
         throw new Error(data.error || "Prediction failed.");
       }
 
-      localStorage.setItem("latest_diagnosis_report", JSON.stringify(data.report));
+      localStorage.setItem(reportStorageKey, JSON.stringify(data.report));
+      localStorage.removeItem(symptomsStorageKey);
       setPrediction(data.report);
       navigate("/Report", { state: { report: data.report } });
     } catch (err) {

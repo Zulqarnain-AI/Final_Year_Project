@@ -3,6 +3,30 @@ import { Link, useLocation } from "react-router-dom";
 
 const API_URL = "http://127.0.0.1:5000/reports/latest";
 
+function getCurrentUser() {
+  const rawUser = localStorage.getItem("user");
+  if (!rawUser) return null;
+  try {
+    return JSON.parse(rawUser);
+  } catch {
+    return null;
+  }
+}
+
+function getPatientScopedKey(baseKey, user) {
+  return user?.id ? `${baseKey}_${user.id}` : baseKey;
+}
+
+function isReportOwnedByUser(report, user) {
+  if (!report || !user) return false;
+  const reportPatientInternalId = report?.patient_id;
+  const reportPatientHumanId = report?.patientId;
+  return (
+    (reportPatientInternalId && reportPatientInternalId === user.id) ||
+    (reportPatientHumanId && user.patientId && reportPatientHumanId === user.patientId)
+  );
+}
+
 const diseaseDescriptions = {
   asthma: "Chronic inflammatory disease of the airways",
   copd: "Progressive lung disease causing airflow limitation",
@@ -20,11 +44,21 @@ function normalizeLabel(value) {
 
 function ReportDetail() {
   const location = useLocation();
+  const currentUser = getCurrentUser();
+  const reportStorageKey = getPatientScopedKey("latest_diagnosis_report", currentUser);
 
   const [report, setReport] = useState(() => {
-    if (location.state?.report) return location.state.report;
-    const cached = localStorage.getItem("latest_diagnosis_report");
-    return cached ? JSON.parse(cached) : null;
+    if (location.state?.report && isReportOwnedByUser(location.state.report, currentUser)) {
+      return location.state.report;
+    }
+    const cached = localStorage.getItem(reportStorageKey);
+    if (!cached) return null;
+    try {
+      const parsed = JSON.parse(cached);
+      return isReportOwnedByUser(parsed, currentUser) ? parsed : null;
+    } catch {
+      return null;
+    }
   });
   const [error, setError] = useState("");
 
@@ -48,15 +82,20 @@ function ReportDetail() {
         if (!response.ok) {
           throw new Error(data.error || "Unable to load report.");
         }
+
+        if (!isReportOwnedByUser(data, currentUser)) {
+          throw new Error("Unauthorized report data received.");
+        }
+
         setReport(data);
-        localStorage.setItem("latest_diagnosis_report", JSON.stringify(data));
+        localStorage.setItem(reportStorageKey, JSON.stringify(data));
       } catch (err) {
         setError(err.message || "Unable to load report.");
       }
     };
 
     loadLatestReport();
-  }, [report]);
+  }, [report, currentUser, reportStorageKey]);
 
   const prediction = report?.final_prediction || "unknown";
   const confidence = Number(report?.final_confidence || 0);
@@ -234,6 +273,13 @@ function ReportDetail() {
         <div className="flex flex-row justify-end mb-6 w-full mt-8">
           <Link to="/dashboard" className="mr-4 bg-[#059AA0] text-white py-2 px-4 rounded border-2 border-transparent hover:bg-white hover:text-[#059AA0] hover:border-[#059AA0] transition-all duration-300">
             Back to Dashboard
+          </Link>
+          <Link
+            to="/careplan"
+            state={{ report }}
+            className="mr-4 bg-[#059AA0] text-white py-2 px-4 rounded border-2 border-transparent hover:bg-white hover:text-[#059AA0] hover:border-[#059AA0] transition-all duration-300"
+          >
+            View Care Plan
           </Link>
           <Link to="/DoctorList" className="mr-4 bg-[#059AA0] text-white py-2 px-4 rounded border-2 border-transparent hover:bg-white hover:text-[#059AA0] hover:border-[#059AA0] transition-all duration-300">
             Doctor Appointment

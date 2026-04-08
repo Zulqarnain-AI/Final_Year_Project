@@ -26,9 +26,11 @@ const parseSlotsFromText = (text) => {
 
 function DoctorProfileEdit() {
   const [formData, setFormData] = useState({});
+  const [profilePreview, setProfilePreview] = useState('');
   const [slotsText, setSlotsText] = useState('');
   const [clinicsText, setClinicsText] = useState('');
   const [hospitalsText, setHospitalsText] = useState('');
+  const [languagesText, setLanguagesText] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
@@ -44,10 +46,12 @@ function DoctorProfileEdit() {
         if (mounted) {
           const data = res.data || {};
           setFormData(data);
+          setProfilePreview(data.profileImage || '');
           setSlotsText(formatSlotsToText(data.availableSlots));
           setClinicsText((data.clinics || []).join(', '));
           // doctor UI used 'hospitals' - accept either
           setHospitalsText((data.hospitals || []).join(', '));
+          setLanguagesText((data.languages || []).join(', '));
         }
       } catch (err) {
         console.error(err);
@@ -63,6 +67,19 @@ function DoctorProfileEdit() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleProfileImageChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result;
+      setProfilePreview(base64);
+      setFormData(prev => ({ ...prev, profileImage: base64 }));
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -73,6 +90,7 @@ function DoctorProfileEdit() {
       // parse clinics/hospitals
       if (clinicsText !== undefined) payload.clinics = clinicsText.split(',').map(s => s.trim()).filter(Boolean);
       if (hospitalsText !== undefined) payload.hospitals = hospitalsText.split(',').map(s => s.trim()).filter(Boolean);
+      if (languagesText !== undefined) payload.languages = languagesText.split(',').map(s => s.trim()).filter(Boolean);
 
       // parse slots
       const parsedSlots = parseSlotsFromText(slotsText);
@@ -95,14 +113,31 @@ function DoctorProfileEdit() {
   if (error) return <div className="p-8 text-red-600">Failed to load profile</div>;
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
+    <div className="p-8 max-w-5xl mx-auto">
       <h1 className="text-3xl font-bold mb-6">Edit Doctor Profile</h1>
-      <form onSubmit={handleSubmit} className="bg-white p-6 rounded shadow space-y-4">
+      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow border border-gray-100 space-y-6">
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-6">
+          <h3 className="text-xl font-semibold text-[#059AA0] mb-4">Profile Photo</h3>
+          <div className="flex items-center gap-6">
+            <img
+              src={profilePreview || 'https://placehold.co/120x120?text=Doctor'}
+              alt="Doctor Profile"
+              className="w-24 h-24 rounded-full object-cover border-2 border-[#059AA0]"
+            />
+            <div>
+              <input type="file" accept="image/*" onChange={handleProfileImageChange} className="block" />
+              <p className="text-sm text-gray-500 mt-2">Upload JPG/PNG profile image</p>
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <input name="firstName" value={formData.firstName || ''} onChange={handleChange} placeholder="First name" className="px-4 py-2 border rounded" />
           <input name="lastName" value={formData.lastName || ''} onChange={handleChange} placeholder="Last name" className="px-4 py-2 border rounded" />
           <input name="fullName" value={formData.fullName || ''} onChange={handleChange} placeholder="Full name" className="px-4 py-2 border rounded" />
           <input name="specialization" value={formData.specialization || ''} onChange={handleChange} placeholder="Specialization" className="px-4 py-2 border rounded" />
+          <input name="qualification" value={formData.qualification || ''} onChange={handleChange} placeholder="Qualification" className="px-4 py-2 border rounded" />
+          <input name="department" value={formData.department || ''} onChange={handleChange} placeholder="Department" className="px-4 py-2 border rounded" />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -120,6 +155,11 @@ function DoctorProfileEdit() {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Hospitals / Affiliations (comma separated)</label>
           <input value={hospitalsText} onChange={e => setHospitalsText(e.target.value)} placeholder="Hospital 1, Hospital 2" className="w-full px-4 py-2 border rounded" />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Languages (comma separated)</label>
+          <input value={languagesText} onChange={e => setLanguagesText(e.target.value)} placeholder="English, Urdu" className="w-full px-4 py-2 border rounded" />
         </div>
 
         <div>

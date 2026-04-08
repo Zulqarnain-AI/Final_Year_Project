@@ -20,6 +20,7 @@ import CarePlanUI from "./components/care_plan/Careplan"
 import UserProfileView from "./components/profile/UserProfileView"
 import UserSettings from "./components/profile/Setting"
 import Editprofile from "./components/profile/Editprofile"
+import History from "./components/history/History"
 function App() {
 
   return (
@@ -45,6 +46,7 @@ function App() {
           <Route path="/profile" element={<UserProfileView />} />
           <Route path="/setting" element={<UserSettings />} />
           <Route path="/editProfile" element={<Editprofile />} />
+          <Route path="/history" element={<History />} />
 
 
         </Routes>

@@ -1,7 +1,7 @@
 // UserProfileView.jsx
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import React, { useEffect, useState } from "react";
-import { Pencil, Calendar, Mail, Phone, MapPin, Heart } from "lucide-react";
+import { Pencil, Calendar, Mail, Phone, MapPin, Heart, User, Globe, Activity, AlertTriangle, Stethoscope } from "lucide-react";
 import profile_img from "./image/doctor4.jpeg";
 import axios from "axios";
 
@@ -19,6 +19,7 @@ const InfoBlock = ({ Icon, label, value }) => (
 
 function UserProfileView() {
   const [user, setUser] = useState(null);
+  const navigate = useNavigate();
 
   // 🔥 Fetch profile from backend
   useEffect(() => {
@@ -28,8 +29,7 @@ function UserProfileView() {
           localStorage.getItem("access_token") || localStorage.getItem("token");
 
         if (!token) {
-          console.error("No auth token found - redirecting to login");
-          window.location.href = "/login";
+          navigate("/login");
           return;
         }
 
@@ -66,12 +66,12 @@ function UserProfileView() {
         </Link>
       </div>
 
-      <div className="bg-white shadow-xl rounded-2xl overflow-hidden">
+      <div className="bg-white shadow-xl rounded-2xl overflow-hidden border border-gray-100">
         <div className="p-8 bg-gradient-to-r from-[#059AA0] to-[#047D80] text-white flex items-center space-x-8">
           <img
-            src={profile_img}
+            src={user.profileImage || profile_img}
             alt="profile"
-            className="w-24 h-24 rounded-full border-4 border-white shadow-lg"
+            className="w-24 h-24 rounded-full border-4 border-white shadow-lg object-cover"
           />
           <div>
             <h2 className="text-3xl font-bold">
@@ -80,6 +80,7 @@ function UserProfileView() {
             <p className="text-lg font-light mt-1">
               Patient ID: {user.patientId}
             </p>
+            <p className="text-sm mt-1 opacity-90">{user.currentMedicalCondition || user.medicalConditions || "No current diagnosis available"}</p>
           </div>
         </div>
 
@@ -88,10 +89,17 @@ function UserProfileView() {
             Personal Information
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <InfoBlock Icon={User} label="Full Name" value={user.fullName} />
             <InfoBlock Icon={Mail} label="Email Address" value={user.email} />
             <InfoBlock Icon={Phone} label="Phone Number" value={user.phone} />
             <InfoBlock Icon={Calendar} label="Date of Birth" value={user.dob} />
             <InfoBlock Icon={MapPin} label="Address" value={user.address} />
+            <InfoBlock Icon={User} label="Gender" value={user.gender} />
+            <InfoBlock Icon={Activity} label="Age" value={user.age} />
+            <InfoBlock Icon={Activity} label="Height" value={user.height} />
+            <InfoBlock Icon={Activity} label="Weight" value={user.weight} />
+            <InfoBlock Icon={Globe} label="Languages" value={Array.isArray(user.languages) ? user.languages.join(", ") : user.languages} />
+            <InfoBlock Icon={AlertTriangle} label="Emergency Contact" value={user.emergencyContact} />
           </div>
         </div>
 
@@ -112,7 +120,21 @@ function UserProfileView() {
               label="Last Checkup"
               value={user.lastCheckup}
             />
+            <InfoBlock
+              Icon={Calendar}
+              label="Last Diagnosis Date"
+              value={user.lastDiagnosisDate ? new Date(user.lastDiagnosisDate).toLocaleString() : "Not Provided"}
+            />
+            <InfoBlock
+              Icon={Stethoscope}
+              label="Current Medical Condition"
+              value={user.currentMedicalCondition || user.medicalConditions}
+            />
           </div>
+        </div>
+
+        <div className="p-8 border-t border-gray-100 flex justify-end">
+          <Link to="/setting" className="text-[#059AA0] font-semibold hover:underline">Manage in Settings</Link>
         </div>
       </div>
     </div>
