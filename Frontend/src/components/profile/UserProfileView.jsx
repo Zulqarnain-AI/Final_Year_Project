@@ -5,17 +5,30 @@ import { Pencil, Calendar, Mail, Phone, MapPin, Heart, User, Globe, Activity, Al
 import profile_img from "./image/doctor4.jpeg";
 import axios from "axios";
 
-const InfoBlock = ({ Icon, label, value }) => (
-  <div className="flex items-start space-x-4 p-4 bg-white rounded-lg shadow-sm border border-gray-100">
-    <Icon className="text-[#059AA0] w-6 h-6 mt-1 flex-shrink-0" />
-    <div>
-      <p className="text-sm font-medium text-gray-500">{label}</p>
-      <p className="text-lg font-semibold text-gray-800">
-        {value || "Not Provided"}
-      </p>
+function readValidToken() {
+  const raw = localStorage.getItem("access_token") || localStorage.getItem("token") || "";
+  const token = String(raw).trim();
+  if (!token || token === "undefined" || token === "null") {
+    return "";
+  }
+  return token;
+}
+
+function InfoBlock({ icon, label, value }) {
+  return (
+    <div className="flex items-start space-x-4 p-4 bg-white rounded-lg shadow-sm border border-gray-100">
+      {React.createElement(icon, {
+        className: "text-[#059AA0] w-6 h-6 mt-1 flex-shrink-0",
+      })}
+      <div>
+        <p className="text-sm font-medium text-gray-500">{label}</p>
+        <p className="text-lg font-semibold text-gray-800">
+          {value || "Not Provided"}
+        </p>
+      </div>
     </div>
-  </div>
-);
+  );
+}
 
 function UserProfileView() {
   const [user, setUser] = useState(null);
@@ -25,8 +38,7 @@ function UserProfileView() {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const token =
-          localStorage.getItem("access_token") || localStorage.getItem("token");
+        const token = readValidToken();
 
         if (!token) {
           navigate("/login");
@@ -41,11 +53,16 @@ function UserProfileView() {
         setUser(res.data);
       } catch (error) {
         console.error("Error fetching profile:", error);
+        if (error?.response?.status === 401 || error?.response?.status === 422) {
+          localStorage.removeItem("access_token");
+          localStorage.removeItem("token");
+          navigate("/login");
+        }
       }
     };
 
     fetchProfile();
-  }, []);
+  }, [navigate]);
 
   if (!user) {
     return <div className="text-center mt-10">Loading profile...</div>;
@@ -89,17 +106,17 @@ function UserProfileView() {
             Personal Information
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <InfoBlock Icon={User} label="Full Name" value={user.fullName} />
-            <InfoBlock Icon={Mail} label="Email Address" value={user.email} />
-            <InfoBlock Icon={Phone} label="Phone Number" value={user.phone} />
-            <InfoBlock Icon={Calendar} label="Date of Birth" value={user.dob} />
-            <InfoBlock Icon={MapPin} label="Address" value={user.address} />
-            <InfoBlock Icon={User} label="Gender" value={user.gender} />
-            <InfoBlock Icon={Activity} label="Age" value={user.age} />
-            <InfoBlock Icon={Activity} label="Height" value={user.height} />
-            <InfoBlock Icon={Activity} label="Weight" value={user.weight} />
-            <InfoBlock Icon={Globe} label="Languages" value={Array.isArray(user.languages) ? user.languages.join(", ") : user.languages} />
-            <InfoBlock Icon={AlertTriangle} label="Emergency Contact" value={user.emergencyContact} />
+            <InfoBlock icon={User} label="Full Name" value={user.fullName} />
+            <InfoBlock icon={Mail} label="Email Address" value={user.email} />
+            <InfoBlock icon={Phone} label="Phone Number" value={user.phone} />
+            <InfoBlock icon={Calendar} label="Date of Birth" value={user.dob} />
+            <InfoBlock icon={MapPin} label="Address" value={user.address} />
+            <InfoBlock icon={User} label="Gender" value={user.gender} />
+            <InfoBlock icon={Activity} label="Age" value={user.age} />
+            <InfoBlock icon={Activity} label="Height" value={user.height} />
+            <InfoBlock icon={Activity} label="Weight" value={user.weight} />
+            <InfoBlock icon={Globe} label="Languages" value={Array.isArray(user.languages) ? user.languages.join(", ") : user.languages} />
+            <InfoBlock icon={AlertTriangle} label="Emergency Contact" value={user.emergencyContact} />
           </div>
         </div>
 
@@ -108,25 +125,25 @@ function UserProfileView() {
             Medical Summary
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <InfoBlock Icon={Heart} label="Blood Group" value={user.bloodGroup} />
-            <InfoBlock Icon={Heart} label="Allergies" value={user.allergies} />
+            <InfoBlock icon={Heart} label="Blood Group" value={user.bloodGroup} />
+            <InfoBlock icon={Heart} label="Allergies" value={user.allergies} />
             <InfoBlock
-              Icon={Heart}
+              icon={Heart}
               label="Primary Physician"
               value={user.primaryPhysician}
             />
             <InfoBlock
-              Icon={Calendar}
+              icon={Calendar}
               label="Last Checkup"
               value={user.lastCheckup}
             />
             <InfoBlock
-              Icon={Calendar}
+              icon={Calendar}
               label="Last Diagnosis Date"
               value={user.lastDiagnosisDate ? new Date(user.lastDiagnosisDate).toLocaleString() : "Not Provided"}
             />
             <InfoBlock
-              Icon={Stethoscope}
+              icon={Stethoscope}
               label="Current Medical Condition"
               value={user.currentMedicalCondition || user.medicalConditions}
             />

@@ -232,13 +232,13 @@ function ReportDetail() {
                 </div>
               ))}
             </div>
-            {symptomPrediction && (
+            {/* {symptomPrediction && (
               <div className="mt-4 p-3 bg-slate-50 rounded-lg border border-slate-200">
                 <p className="text-sm text-slate-700">
                   Symptom Model Prediction: <span className="font-semibold">{normalizeLabel(symptomPrediction.prediction)}</span>
                 </p>
               </div>
-            )}
+            )} */}
           </div>
 
           <div className="border-2 border-slate-200 rounded-lg shadow-lg bg-white p-6">

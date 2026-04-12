@@ -1,19 +1,12 @@
 import React from "react";
-import Navbar from "../dashboard/header";
 import Herosection from "./Herosection";
-import Uploadcough from "./UploadInput"
 
 function Input() {
   return (
     <>
-      <div className="px-[50px] py-[30px]">
-        <Navbar />
-        <Herosection/>
-        
-        
-
+      <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-white to-teal-50 px-4 py-6 sm:px-8 lg:px-12">
+        <Herosection />
       </div>
-     
     </>
   );
 }

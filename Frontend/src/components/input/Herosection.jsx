@@ -1,9 +1,8 @@
 
 import React, { useState } from "react";
-import { Link } from "react-router-dom"
+import { Link } from "react-router-dom";
 
 function Herosection() {
-  // ✅ Initialize selected as an array for multi-select
   const [selected, setSelected] = useState([]);
 
   const getSymptomStorageKey = () => {
@@ -17,27 +16,30 @@ function Herosection() {
     }
   };
 
-  // ✅ Toggle function for multi-select
   const toggleSymptom = (symptom) => {
     if (selected.includes(symptom)) {
-      // remove it
       setSelected(selected.filter((item) => item !== symptom));
     } else {
-      // add it
       setSelected([...selected, symptom]);
     }
   };
 
   const symptoms = [
-    "Fever",
-    "Shortness of breath",
-    "Headche",
-    "Cough",
-    "Fatigue",
-    "Rapid Breathing",
-    "Chest Tightness",
-    "Wheezing",
-    "Sore Throat",
+    "fever",
+    "shortness of breath",
+    "cough",
+    "chest pain",
+    "yellow cough",
+    "tight feeling in the chest",
+    "fatigue",
+    "feeling run-down or tired",
+    "chronic cough",
+    "mucus",
+    "chest Tightness",
+    "wheezing",
+    "cough with blood",
+    "whistling sound while breathing",
+    "fatigue",
   ];
 
   const handleNext = () => {
@@ -46,35 +48,72 @@ function Herosection() {
   };
 
   return (
-    <section>
-      <div className="flex justify-center items-center flex-col gap-3">
-        <h1 className="font-bold font-poppins text-[40px]">Symptom</h1>
-        <p className="font-poppins font-medium">
-          Submit your symptoms and audio recordings for smart diagnosis
-        </p>
-
-        <div className="w-[1167px] h-[350px] shadow-xl border rounded p-3">
-          <div className="grid grid-rows-3 grid-flow-col p-10 gap-4">
-            {symptoms.map((symptom) => (
-              <div
-                key={symptom}
-                onClick={() => toggleSymptom(symptom)}
-                className={`w-[280px] h-[67px] rounded flex justify-center items-center cursor-pointer
-                  shadow-sm transition-transform duration-300 shadow-[#1FB8C0]
-                  hover:scale-105 hover:text-[#1FB8C0] hover:shadow-none
-                  ${selected.includes(symptom) ? "bg-[#1FB8C0] hover:text-white text-white" : ""}
-                `}
-              >
-                {symptom}
-              </div>
-            ))}
+    <section className="mx-auto mt-6 w-full max-w-6xl">
+      <div className="rounded-3xl border border-cyan-100 bg-white/95 shadow-xl shadow-cyan-100/70 backdrop-blur-sm">
+        <div className="flex flex-col gap-5 border-b border-cyan-100 p-5 sm:p-8">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <Link
+              to="/dashboard"
+              className="inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-cyan-50 px-4 py-2 text-sm font-semibold text-cyan-700 transition hover:-translate-y-0.5 hover:bg-cyan-100"
+            >
+              ← Back
+            </Link>
+            <p className="rounded-full bg-cyan-50 px-4 py-1 text-sm font-medium text-cyan-700">
+              Selected: {selected.length}
+            </p>
           </div>
 
-          <div className="relative bottom-[30px] w-[100px] left-[952px]">
-            <Link to="/Uploadcough" state={{ symptoms: selected }} onClick={handleNext}>
-              <button className="px-4 py-2 bg-[#1FB8C0] hover:border-[#1FB8C0] hover:border-2 hover:bg-white hover:text-[#1FB8C0] text-white rounded-full">
-                Next ➜
-              </button>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+              Select Your Symptoms
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm text-slate-600 sm:text-base">
+              Choose all symptoms that match your current condition. You can select multiple options before continuing to audio analysis.
+            </p>
+          </div>
+
+          <div className="rounded-2xl bg-gradient-to-r from-cyan-50 to-teal-50 p-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {symptoms.map((symptom) => {
+                const isSelected = selected.includes(symptom);
+                return (
+                  <button
+                    type="button"
+                    key={symptom}
+                    onClick={() => toggleSymptom(symptom)}
+                    className={`group min-h-[54px] rounded-xl border px-4 py-3 text-left text-sm font-medium capitalize transition-all duration-300 sm:text-base ${
+                      isSelected
+                        ? "border-cyan-500 bg-cyan-500 text-white shadow-lg shadow-cyan-200"
+                        : "border-cyan-100 bg-white text-slate-700 hover:-translate-y-0.5 hover:border-cyan-300 hover:shadow-md"
+                    }`}
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <span
+                        className={`inline-block h-2.5 w-2.5 rounded-full transition ${
+                          isSelected ? "bg-white" : "bg-cyan-300 group-hover:bg-cyan-400"
+                        }`}
+                      ></span>
+                      {symptom}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <p className="text-sm text-slate-500">
+              Tip: Use at least 3 symptoms for better diagnosis confidence.
+            </p>
+
+            <Link
+              to="/Uploadcough"
+              state={{ symptoms: selected }}
+              onClick={handleNext}
+              className="inline-flex items-center gap-2 rounded-full bg-cyan-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-cyan-300 transition hover:-translate-y-0.5 hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Continue to Audio
+              <span className="animate-pulse">→</span>
             </Link>
           </div>
         </div>

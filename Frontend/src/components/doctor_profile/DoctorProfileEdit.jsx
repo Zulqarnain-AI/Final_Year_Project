@@ -60,7 +60,7 @@ function DoctorProfileEdit() {
     };
     fetchProfile();
     return () => { mounted = false };
-  }, []);
+  }, [navigate]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;

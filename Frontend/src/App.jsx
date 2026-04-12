@@ -7,7 +7,7 @@ import Landing from "./components/landingPage/Landing"
 import Uploadcough from "./components/input/UploadInput"
 import Report from "./components/input/Report"
 
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom"
+import { BrowserRouter as Router, Routes, Route, Outlet } from "react-router-dom"
 import RegisterForm from "./components/login/RegisterForm"
 import EnvironmentalAlertView from "./components/evironmentAlert/environmental_alert_view"
 import DoctorList from "./components/doctor_apointment/DoctorList"
@@ -21,6 +21,17 @@ import UserProfileView from "./components/profile/UserProfileView"
 import UserSettings from "./components/profile/Setting"
 import Editprofile from "./components/profile/Editprofile"
 import History from "./components/history/History"
+import Header from "./components/global/Header"
+
+function AppLayout() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-white to-teal-50 px-4 py-6 sm:px-8 lg:px-12">
+      <Header />
+      <Outlet />
+    </div>
+  )
+}
+
 function App() {
 
   return (
@@ -30,23 +41,26 @@ function App() {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/environmmental_alert" element={<EnvironmentalAlertView />} />
-          <Route path="/Input" element={<Input />} />
-          <Route path="/Uploadcough" element={<Uploadcough />} />
-          <Route path="/Report" element={<Report />} />
           <Route path="/RegisterForm" element={<RegisterForm />} />
-          <Route path="/DoctorList" element={<DoctorList />} />
-          <Route path="/doctors/:id" element={<DoctorProfile />} />
-          <Route path="/doctor/dashboard" element={<DoctorDashboard />} />
-          <Route path="/doctor/appointments/:id" element={<AppointmentDetail />} />
-          <Route path="/doctor/profile" element={<DoctorProfileView />} />
-          <Route path="/doctor/profile/edit" element={<DoctorProfileEdit />} />
-          <Route path="/careplan" element={<CarePlanUI />} />
-          <Route path="/profile" element={<UserProfileView />} />
-          <Route path="/setting" element={<UserSettings />} />
-          <Route path="/editProfile" element={<Editprofile />} />
-          <Route path="/history" element={<History />} />
+
+          <Route element={<AppLayout />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/environmmental_alert" element={<EnvironmentalAlertView />} />
+            <Route path="/Input" element={<Input />} />
+            <Route path="/Uploadcough" element={<Uploadcough />} />
+            <Route path="/Report" element={<Report />} />
+            <Route path="/DoctorList" element={<DoctorList />} />
+            <Route path="/doctors/:id" element={<DoctorProfile />} />
+            <Route path="/doctor/dashboard" element={<DoctorDashboard />} />
+            <Route path="/doctor/appointments/:id" element={<AppointmentDetail />} />
+            <Route path="/doctor/profile" element={<DoctorProfileView />} />
+            <Route path="/doctor/profile/edit" element={<DoctorProfileEdit />} />
+            <Route path="/careplan" element={<CarePlanUI />} />
+            <Route path="/profile" element={<UserProfileView />} />
+            <Route path="/setting" element={<UserSettings />} />
+            <Route path="/editProfile" element={<Editprofile />} />
+            <Route path="/history" element={<History />} />
+          </Route>
 
 
         </Routes>

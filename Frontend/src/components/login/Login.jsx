@@ -1,6 +1,3 @@
-import google from "./image/google.webp"
-import facebook from "./image/facebook.webp"
-import apple from "./image/apple.png"
 import image from "./image/mainimage.png"
 import { useState } from "react"
 import Lung from "../dashboard/image/lung logo.png"
@@ -11,7 +8,7 @@ import RegisterForm from "./RegisterForm"
 function Login() {
   const [registerForm, setRegisterForm] = useState(false)
   const [showLanguageMenu, setShowLanguageMenu] = useState(false)
-  const [selectedLanguage, setSelectedLanguage] = useState("English")
+  const selectedLanguage = "English"
   const [success, setSuccess] = useState("") // STATE for success message
   const [error, setError] = useState("")     // STATE for API error message
 

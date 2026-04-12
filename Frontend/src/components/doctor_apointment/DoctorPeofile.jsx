@@ -105,7 +105,7 @@ function DoctorProfile() {
                 notes: ''
             };
 
-            const res = await axios.post('http://localhost:5000/appointments', payload, {
+            await axios.post('http://localhost:5000/appointments', payload, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 

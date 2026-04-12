@@ -3,6 +3,15 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
+function readValidToken() {
+  const raw = localStorage.getItem("access_token") || localStorage.getItem("token") || "";
+  const token = String(raw).trim();
+  if (!token || token === "undefined" || token === "null") {
+    return "";
+  }
+  return token;
+}
+
 const FormInput = ({
   label,
   name,
@@ -39,8 +48,7 @@ function Editprofile() {
       setIsLoading(true);
       setError(null);
       try {
-        const token =
-          localStorage.getItem("access_token") || localStorage.getItem("token");
+        const token = readValidToken();
 
         if (!token) {
           console.error("No auth token found - redirecting to login");
@@ -62,13 +70,18 @@ function Editprofile() {
         console.error("Error loading profile:", err);
         setError(err);
         setFormData({});
+        if (err?.response?.status === 401 || err?.response?.status === 422) {
+          localStorage.removeItem("access_token");
+          localStorage.removeItem("token");
+          navigate("/login");
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchProfile();
-  }, []);
+  }, [navigate]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -98,8 +111,7 @@ function Editprofile() {
     e.preventDefault();
 
     try {
-      const token =
-        localStorage.getItem("access_token") || localStorage.getItem("token");
+      const token = readValidToken();
 
       if (!token) {
         console.error("No auth token found - redirecting to login");
@@ -129,11 +141,23 @@ function Editprofile() {
       navigate("/profile");
     } catch (error) {
       console.error("Error updating profile:", error);
+      if (error?.response?.status === 401 || error?.response?.status === 422) {
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("token");
+        navigate("/login");
+        return;
+      }
       alert("Update failed");
     }
   };
 
   if (!formData) {
+    if (error) {
+      return <div className="text-center mt-10 text-red-600">Failed to load profile.</div>;
+    }
+    if (isLoading) {
+      return <div className="text-center mt-10">Loading...</div>;
+    }
     return <div className="text-center mt-10">Loading...</div>;
   }
 

@@ -39,6 +39,23 @@ CORS(app)
 mongo.init_app(app)
 jwt = JWTManager(app)
 
+
+@jwt.invalid_token_loader
+def handle_invalid_token(reason):
+    logging.warning(f"Invalid JWT token: {reason}")
+    return jsonify({"error": "Invalid or malformed authentication token"}), 401
+
+
+@jwt.unauthorized_loader
+def handle_missing_token(reason):
+    logging.warning(f"Missing JWT token: {reason}")
+    return jsonify({"error": "Authentication token is required"}), 401
+
+
+@jwt.expired_token_loader
+def handle_expired_token(jwt_header, jwt_payload):
+    return jsonify({"error": "Authentication token has expired"}), 401
+
 # -------------------------------
 # Audio model inference
 # -------------------------------

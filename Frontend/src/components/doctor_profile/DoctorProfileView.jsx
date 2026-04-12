@@ -24,7 +24,7 @@ function DoctorProfileView() {
     };
     fetchProfile();
     return () => { mounted = false };
-  }, []);
+  }, [navigate]);
 
   if (loading) return <div className="p-8">Loading...</div>;
   if (error || !profile) return <div className="p-8 text-red-600">Failed to load profile</div>;
