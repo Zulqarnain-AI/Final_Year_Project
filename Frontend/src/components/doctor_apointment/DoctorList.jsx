@@ -58,9 +58,18 @@ function DoctorList() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto bg-gradient-to-b from-[#f8feff] to-white min-h-screen">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-[#059AA0]">Find Your Doctor</h1>
-        <p className="text-gray-600 mt-2">Browse doctors and view details before requesting an appointment.</p>
+      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-[#059AA0]">Find Your Doctor</h1>
+          <p className="text-gray-600 mt-2">Browse doctors, request appointments, and track your appointment requests in one place.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => navigate('/appointments')}
+          className="self-start rounded-lg border border-[#059AA0] px-4 py-2 font-semibold text-[#059AA0] hover:bg-teal-50"
+        >
+          My Appointment Requests
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

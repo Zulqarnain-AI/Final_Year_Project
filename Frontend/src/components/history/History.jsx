@@ -102,7 +102,7 @@ function History() {
                     {reports.map((report, index) => {
                         const createdAt = report.created_at ? new Date(report.created_at) : null;
                         return (
-                            <div key={report.id || index} className="bg-white rounded-xl p-5 shadow border border-gray-100">
+                            <div key={report.id || index} className="bg-white rounded-xl p-5 shadow border border-gray-300">
                                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-4">
                                     <div>
                                         <h2 className="text-xl font-semibold text-gray-900">{formatPredictionLabel(report.final_prediction)}</h2>

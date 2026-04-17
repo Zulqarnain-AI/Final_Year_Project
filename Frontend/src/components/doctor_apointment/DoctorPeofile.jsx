@@ -57,6 +57,7 @@ function DoctorProfile() {
     const [error, setError] = useState(null);
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedTime, setSelectedTime] = useState(null);
+    const [additionalInfo, setAdditionalInfo] = useState('');
 
     useEffect(() => {
         let mounted = true;
@@ -83,6 +84,8 @@ function DoctorProfile() {
     const doctorQualification = firstNonEmpty(doctor.qualification, doctor.qualifications, doctor.education);
     const doctorDepartment = firstNonEmpty(doctor.department, doctor.specialization, doctor.speciality);
     const doctorLanguages = normalizeList(firstNonEmpty(doctor.languages, doctor.language, doctor.spokenLanguages));
+    const reviewCount = doctor.reviewCount || doctor.recentReviews?.length || 0;
+    const recentReviews = Array.isArray(doctor.recentReviews) ? doctor.recentReviews : [];
 
     const handleSendRequest = async () => {
         if (!selectedDate || !selectedTime) {
@@ -102,7 +105,8 @@ function DoctorProfile() {
                 doctorId: doctor.doctorId || doctor.id,
                 date: selectedDate,
                 time: selectedTime,
-                notes: ''
+                notes: '',
+                additionalInfo: additionalInfo.trim()
             };
 
             await axios.post('http://localhost:5000/appointments', payload, {
@@ -110,7 +114,7 @@ function DoctorProfile() {
             });
 
             alert('Appointment request sent successfully.');
-            navigate('/dashboard');
+            navigate('/appointments');
         } catch (err) {
             console.error('Error sending appointment request', err);
             alert('Failed to send appointment request');
@@ -145,7 +149,8 @@ function DoctorProfile() {
                             <div className="text-lg text-yellow-500 flex items-center justify-center md:justify-start mt-2">
                                 <span className="text-1xl mr-1">⭐</span> {formatRating(doctor.rating)} / 5.0
                             </div>
-                            <p className="text-sm text-gray-500 mt-2">Doctor ID: {doctor.doctorId || 'N/A'}</p>
+                            <p className="text-sm text-gray-500 mt-2">Based on {reviewCount} patient review{reviewCount === 1 ? '' : 's'}</p>
+                            <p className="text-sm text-gray-500 mt-1">Doctor ID: {doctor.doctorId || 'N/A'}</p>
                         </div>
                     </div>
 
@@ -195,6 +200,13 @@ function DoctorProfile() {
                     <h3 className="text-2xl font-bold text-teal-600 mb-5">
                         <span className='mr-2'>🗓️</span> Book an Appointment
                     </h3>
+
+                    <div className="mb-4 rounded-lg border border-teal-100 bg-teal-50 p-3">
+                        <p className="text-sm font-semibold text-teal-800">Patient details shared with doctor</p>
+                        <p className="text-xs text-teal-700 mt-1">
+                            Age, sex, and your latest diagnosis summary will be attached automatically.
+                        </p>
+                    </div>
                     
                     <div className="space-y-4">
                         <p className="font-semibold text-gray-700">Select Date:</p>
@@ -243,6 +255,21 @@ function DoctorProfile() {
                                 </div>
                             </div>
                         )}
+
+                        <div className="pt-4 border-t mt-4">
+                            <label className="block font-semibold text-gray-700 mb-2">
+                                Additional information for doctor (optional)
+                            </label>
+                            <textarea
+                                value={additionalInfo}
+                                onChange={(e) => setAdditionalInfo(e.target.value)}
+                                rows={4}
+                                maxLength={800}
+                                placeholder="Share anything helpful for your visit, for example current symptoms, medicine history, allergies, or concerns."
+                                className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-teal-400"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">{additionalInfo.length}/800 characters</p>
+                        </div>
                     </div>
                     
                     <button
@@ -263,7 +290,44 @@ function DoctorProfile() {
                         </p>
                     )}
 
+                    <button
+                        type="button"
+                        onClick={() => navigate('/appointments')}
+                        className="mt-3 w-full border border-[#059AA0] text-[#059AA0] px-8 py-3 rounded-xl font-semibold hover:bg-teal-50 transition duration-300"
+                    >
+                        View My Appointment Requests
+                    </button>
+
                 </div>
+            </div>
+
+            <div className="mt-8 bg-white rounded-xl shadow-md p-6 border border-gray-100">
+                <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+                    <div>
+                        <h3 className="text-2xl font-semibold text-gray-700">Patient Reviews</h3>
+                        <p className="text-sm text-gray-500">Recent feedback from completed appointments.</p>
+                    </div>
+                    <div className="rounded-full bg-teal-50 px-4 py-2 text-teal-700 font-semibold">
+                        {formatRating(doctor.rating)} / 5 average
+                    </div>
+                </div>
+
+                {recentReviews.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {recentReviews.map((review) => (
+                            <div key={review.id} className="rounded-xl border border-gray-200 p-4 bg-gray-50">
+                                <div className="flex items-center justify-between gap-2">
+                                    <p className="font-semibold text-gray-800">{review.patientId || 'Anonymous patient'}</p>
+                                    <p className="text-sm text-yellow-600 font-semibold">⭐ {Number(review.rating || 0).toFixed(1)}</p>
+                                </div>
+                                <p className="text-sm text-gray-600 mt-2 leading-relaxed">{review.comment || 'No comment added.'}</p>
+                                <p className="text-xs text-gray-400 mt-3">{review.created_at ? new Date(review.created_at).toLocaleDateString() : ''}</p>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <p className="text-gray-500">No reviews yet.</p>
+                )}
             </div>
         </div>
     );

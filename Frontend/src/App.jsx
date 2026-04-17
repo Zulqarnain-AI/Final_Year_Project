@@ -12,6 +12,7 @@ import RegisterForm from "./components/login/RegisterForm"
 import EnvironmentalAlertView from "./components/evironmentAlert/environmental_alert_view"
 import DoctorList from "./components/doctor_apointment/DoctorList"
 import DoctorProfile from "./components/doctor_apointment/DoctorPeofile"
+import PatientAppointments from "./components/doctor_apointment/PatientAppointments"
 import DoctorDashboard from "./components/doctor_dashboard/DoctorDashboard"
 import AppointmentDetail from "./components/doctor_dashboard/AppointmentDetail"
 import DoctorProfileView from "./components/doctor_profile/DoctorProfileView"
@@ -51,6 +52,7 @@ function App() {
             <Route path="/Report" element={<Report />} />
             <Route path="/DoctorList" element={<DoctorList />} />
             <Route path="/doctors/:id" element={<DoctorProfile />} />
+            <Route path="/appointments" element={<PatientAppointments />} />
             <Route path="/doctor/dashboard" element={<DoctorDashboard />} />
             <Route path="/doctor/appointments/:id" element={<AppointmentDetail />} />
             <Route path="/doctor/profile" element={<DoctorProfileView />} />

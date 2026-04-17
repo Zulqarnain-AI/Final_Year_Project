@@ -505,6 +505,38 @@ patients_collection = mongo.db.patients
 reports_collection = mongo.db.reports
 appointments_collection = mongo.db.appointments
 medical_records_collection = mongo.db.medical_records
+doctor_reviews_collection = mongo.db.doctor_reviews
+
+
+def serialize_review(review):
+    return {
+        "id": str(review.get("_id")),
+        "doctor_id": review.get("doctor_id"),
+        "doctorId": review.get("doctorId"),
+        "doctorName": review.get("doctorName", ""),
+        "patient_id": review.get("patient_id"),
+        "patientId": review.get("patientId", ""),
+        "appointment_id": review.get("appointment_id"),
+        "rating": review.get("rating", 0),
+        "comment": review.get("comment", ""),
+        "created_at": review.get("created_at").isoformat() if review.get("created_at") else None,
+    }
+
+
+def get_doctor_review_stats(doctor_id):
+    reviews = list(doctor_reviews_collection.find({"doctor_id": doctor_id}).sort("created_at", -1))
+    ratings = [float(review.get("rating", 0)) for review in reviews if review.get("rating") is not None]
+    average_rating = round(sum(ratings) / len(ratings), 1) if ratings else 0
+    return average_rating, len(reviews), [serialize_review(review) for review in reviews[:5]]
+
+
+def refresh_doctor_rating(doctor_id):
+    average_rating, review_count, recent_reviews = get_doctor_review_stats(doctor_id)
+    doctors_collection.update_one(
+        {"_id": ObjectId(doctor_id)},
+        {"$set": {"rating": average_rating, "reviewCount": review_count, "recentReviews": recent_reviews}},
+    )
+    return average_rating, review_count, recent_reviews
 
 
 # -------------------------------
@@ -684,6 +716,7 @@ def dashboard():
 def list_doctors():
     doctors = []
     for d in doctors_collection.find({}):
+        average_rating, review_count, recent_reviews = get_doctor_review_stats(str(d.get("_id")))
         doctors.append({
             "id": str(d.get("_id")),
             "doctorId": d.get("doctorId"),
@@ -697,7 +730,9 @@ def list_doctors():
             "hospitals": d.get("hospitals", []),
             "availableSlots": d.get("availableSlots", []),
             "profileImage": d.get("profileImage", ""),
-            "rating": d.get("rating", 0),
+            "rating": average_rating,
+            "reviewCount": review_count,
+            "recentReviews": recent_reviews,
             "experience": d.get("experience", ""),
             "qualification": d.get("qualification", ""),
             "department": d.get("department", ""),
@@ -736,6 +771,8 @@ def get_doctor(doctor_identifier):
         "availableSlots": doctor.get("availableSlots", []),
         "profileImage": doctor.get("profileImage", ""),
         "rating": doctor.get("rating", 0),
+        "reviewCount": doctor.get("reviewCount", 0),
+        "recentReviews": doctor.get("recentReviews", []),
         "experience": doctor.get("experience", ""),
         "qualification": doctor.get("qualification", ""),
         "department": doctor.get("department", ""),
@@ -768,6 +805,7 @@ def create_appointment():
     date = data.get("date")
     time = data.get("time")
     notes = data.get("notes", "")
+    additional_info = data.get("additionalInfo", "")
 
     if not doctor_identifier or not date or not time:
         return jsonify({"error": "doctorId, date and time are required"}), 400
@@ -785,6 +823,22 @@ def create_appointment():
     if not doctor:
         return jsonify({"error": "Doctor not found"}), 404
 
+    latest_report = reports_collection.find_one(
+        {"patient_id": user_id},
+        sort=[("created_at", -1)]
+    )
+
+    diagnosis_summary = None
+    if latest_report:
+        diagnosis_summary = {
+            "reportId": str(latest_report.get("_id")) if latest_report.get("_id") else None,
+            "final_prediction": latest_report.get("final_prediction", ""),
+            "severity": latest_report.get("severity", ""),
+            "final_confidence": latest_report.get("final_confidence", 0),
+            "created_at": latest_report.get("created_at").isoformat() if latest_report.get("created_at") else None,
+            "symptoms": latest_report.get("symptoms", []),
+        }
+
     appt = {
         "patient_id": str(patient.get("_id")),
         "doctor_id": str(doctor.get("_id")),
@@ -792,10 +846,17 @@ def create_appointment():
         "doctorName": doctor.get("fullName"),
         "patientId": patient.get("patientId"),
         "doctorId": doctor.get("doctorId"),
+        "patientAge": patient.get("age"),
+        "patientSex": patient.get("gender") or patient.get("sex") or "",
+        "diagnosis_summary": diagnosis_summary,
         "date": date,
         "time": time,
         "notes": notes,
+        "additionalInfo": additional_info,
         "status": "pending",
+        "reviewed": False,
+        "review_rating": None,
+        "review_comment": "",
         "created_at": datetime.utcnow(),
         "updated_at": datetime.utcnow()
     }
@@ -819,6 +880,8 @@ def list_patient_appointments():
         a["id"] = str(a.get("_id"))
         appts.append(a)
 
+    appts.sort(key=lambda item: item.get("created_at") or datetime.min, reverse=True)
+
     return jsonify(appts), 200
 
 
@@ -835,6 +898,8 @@ def list_doctor_appointments():
     for a in appointments_collection.find({"doctor_id": user_id}):
         a["id"] = str(a.get("_id"))
         appts.append(a)
+
+    appts.sort(key=lambda item: item.get("created_at") or datetime.min, reverse=True)
 
     return jsonify(appts), 200
 
@@ -858,8 +923,6 @@ def update_appointment(appointment_id):
 
     data = request.get_json() or {}
     update_fields = {}
-    if data.get("status"):
-        update_fields["status"] = data.get("status")
     if data.get("notes") is not None:
         update_fields["notes"] = data.get("notes")
     update_fields["updated_at"] = datetime.utcnow()
@@ -868,15 +931,89 @@ def update_appointment(appointment_id):
     if not appt:
         return jsonify({"error": "Appointment not found"}), 404
 
-    # Only the doctor assigned or patient who created it may update status/notes
+    # Only the doctor assigned may update appointment status.
     if role == "doctor" and appt.get("doctor_id") != user_id:
         return jsonify({"error": "Not authorized"}), 403
     if role == "patient" and appt.get("patient_id") != user_id:
         return jsonify({"error": "Not authorized"}), 403
 
+    if data.get("status"):
+        if role != "doctor":
+            return jsonify({"error": "Only the doctor can update appointment status"}), 403
+        new_status = data.get("status")
+        allowed_statuses = ["pending", "accepted", "rejected", "completed"]
+        if new_status not in allowed_statuses:
+            return jsonify({"error": "Invalid appointment status"}), 400
+        update_fields["status"] = new_status
+
+    if role == "patient" and data.get("notes") is not None:
+        update_fields["notes"] = data.get("notes")
+
+    if role == "doctor" and data.get("notes") is None:
+        update_fields.pop("notes", None)
+
     appointments_collection.update_one({"_id": ObjectId(appointment_id)}, {"$set": update_fields})
 
     return jsonify({"message": "Appointment updated"}), 200
+
+
+@app.route('/appointments/<appointment_id>/review', methods=['POST'])
+@jwt_required()
+def review_appointment(appointment_id):
+    claims = get_jwt()
+    role = claims.get("role")
+    if role != "patient":
+        return jsonify({"error": "Only patients can review appointments"}), 403
+
+    user_id = get_jwt_identity()
+    appt = appointments_collection.find_one({"_id": ObjectId(appointment_id)})
+    if not appt:
+        return jsonify({"error": "Appointment not found"}), 404
+
+    if appt.get("patient_id") != user_id:
+        return jsonify({"error": "Not authorized"}), 403
+
+    if appt.get("status") != "completed":
+        return jsonify({"error": "You can only review completed appointments"}), 400
+
+    data = request.get_json() or {}
+    try:
+        rating = float(data.get("rating"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Rating must be a number"}), 400
+
+    if rating < 1 or rating > 5:
+        return jsonify({"error": "Rating must be between 1 and 5"}), 400
+
+    comment = (data.get("comment") or "").strip()
+
+    existing_review = doctor_reviews_collection.find_one({"appointment_id": appointment_id, "patient_id": user_id})
+    if existing_review:
+        doctor_reviews_collection.update_one(
+            {"_id": existing_review.get("_id")},
+            {"$set": {"rating": rating, "comment": comment, "created_at": datetime.utcnow()}},
+        )
+    else:
+        doctor_reviews_collection.insert_one({
+            "doctor_id": appt.get("doctor_id"),
+            "doctorId": appt.get("doctorId", ""),
+            "doctorName": appt.get("doctorName", ""),
+            "patient_id": user_id,
+            "patientId": appt.get("patientId", ""),
+            "appointment_id": appointment_id,
+            "rating": rating,
+            "comment": comment,
+            "created_at": datetime.utcnow(),
+        })
+
+    appointments_collection.update_one(
+        {"_id": ObjectId(appointment_id)},
+        {"$set": {"reviewed": True, "review_rating": rating, "review_comment": comment, "updated_at": datetime.utcnow()}},
+    )
+
+    refresh_doctor_rating(appt.get("doctor_id"))
+
+    return jsonify({"message": "Review saved successfully"}), 200
 
 
 # -------------------------------

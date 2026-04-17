@@ -48,7 +48,7 @@ function Herosection() {
   };
 
   return (
-    <section className="mx-auto mt-6 w-full max-w-6xl">
+    <section className="mx-auto mt-2 w-full max-w-6xl">
       <div className="rounded-3xl border border-cyan-100 bg-white/95 shadow-xl shadow-cyan-100/70 backdrop-blur-sm">
         <div className="flex flex-col gap-5 border-b border-cyan-100 p-5 sm:p-8">
           <div className="flex flex-wrap items-center justify-between gap-4">

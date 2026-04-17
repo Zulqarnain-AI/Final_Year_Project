@@ -112,7 +112,7 @@ function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-40 mb-6 rounded-2xl border border-cyan-100 bg-white/95 px-4 py-3 shadow-sm backdrop-blur sm:px-6">
+    <header className="sticky top-0 z-40 mb-0 rounded-2xl border border-cyan-100 bg-white/95 px-4 py-3 shadow-sm backdrop-blur sm:px-6">
       <div className="flex items-center justify-between gap-3">
         <Link to={dashboardPath} className="flex items-center gap-3">
           <img className="h-8 w-8" src={Logo} alt="BreatheWell logo" />
