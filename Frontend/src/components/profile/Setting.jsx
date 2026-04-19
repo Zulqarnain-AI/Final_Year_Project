@@ -151,14 +151,6 @@ function Setting() {
                 {/* Sidebar Section (col-span-1) - Fixed */}
                 <section className="col-span-1 border-r border-gray-200 bg-white fixed h-full w-[20%] p-6">
                     
-                    {/* Logo and App Name */}
-                    <Link to = "/dashboard">
-                    <div className="flex items-center gap-3 justify-start mb-10">
-                        <img className="h-6 w-6" src={Logo} alt="logo" />
-                        <h1 className="text-xl font-bold text-[#059AA0]">BreatheWell</h1>
-                    </div>
-                    
-                    </Link>
                     
                     {/* Settings Title in Sidebar */}
                     <h3 className="text-2xl font-bold mb-6 text-gray-800">Settings</h3>
@@ -193,9 +185,9 @@ function Setting() {
                 <section className="col-span-4 ml-[20%] w-full h-screen overflow-y-auto ">
                     
                     {/* Inner Content Wrapper with Padding and Top Buffer */}
-                    <div className="p-10 ml-5"> 
+                    <div className="pl-10 ml-5"> 
                         {/* Explicit Top Buffer - This ensures the content heading has a safe margin */}
-                        <div className="h-8 md:h-12 w-full"></div> 
+                        {/* <div className="h-8 md:h-12 w-full"></div>  */}
 
                         {/* Render the Active Component */}
                             {renderContent()}

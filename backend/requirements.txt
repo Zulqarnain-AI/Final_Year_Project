@@ -2,6 +2,7 @@ flask
 flask-pymongo
 flask-bcrypt
 flask-cors
+flask-jwt-extended
 librosa
 soundfile
 tensorflow
@@ -9,3 +10,5 @@ numpy
 matplotlib
 scikit-learn
 pandas
+pydantic
+requests

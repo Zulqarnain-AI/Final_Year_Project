@@ -23,6 +23,7 @@ import UserSettings from "./components/profile/Setting"
 import Editprofile from "./components/profile/Editprofile"
 import History from "./components/history/History"
 import Header from "./components/global/Header"
+import Chatbot from "./components/chatbot/Chatbot"
 
 function AppLayout() {
   return (
@@ -62,6 +63,7 @@ function App() {
             <Route path="/setting" element={<UserSettings />} />
             <Route path="/editProfile" element={<Editprofile />} />
             <Route path="/history" element={<History />} />
+            <Route path="/chatbot" element={<Chatbot />} />
           </Route>
 
 

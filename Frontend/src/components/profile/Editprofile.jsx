@@ -162,7 +162,7 @@ function Editprofile() {
   }
 
   return (
-    <div className="bg-white p-10 rounded-xl shadow-2xl max-w-5xl mx-auto mt-10 border border-gray-100">
+    <div className="bg-white p-10 pt-0 rounded-xl shadow-2xl max-w-5xl mx-auto mt-0 border border-gray-100">
       <h2 className="text-3xl font-bold text-gray-900 mb-8">
         Edit Your Profile Information
       </h2>

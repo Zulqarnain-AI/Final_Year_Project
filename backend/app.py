@@ -20,13 +20,15 @@ import librosa
 from tempfile import NamedTemporaryFile
 from datetime import datetime
 import logging
+import requests
+import time
+import uuid
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.ensemble import RandomForestClassifier
-
 import joblib
 
 # -------------------------------
@@ -237,6 +239,442 @@ def serialize_report(report_doc):
         "severity": report_doc.get("severity"),
         "created_at": report_doc.get("created_at").isoformat() if report_doc.get("created_at") else None,
     }
+
+
+HF_API_TOKEN = os.environ.get("HF_API_TOKEN", "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")
+HF_MODEL_NAME = os.environ.get("HF_MODEL_NAME", "google/gemma-2-2b-it")
+HF_MODEL_CANDIDATES_RAW = os.environ.get(
+    "HF_MODEL_CANDIDATES",
+    "Qwen/Qwen2.5-7B-Instruct,meta-llama/Llama-3.1-8B-Instruct,microsoft/Phi-3-mini-4k-instruct,HuggingFaceH4/zephyr-7b-beta,mistralai/Mistral-7B-Instruct-v0.2"
+)
+HF_MAX_RETRIES = int(os.environ.get("HF_MAX_RETRIES", "2"))
+HF_RETRY_DELAY_SECONDS = float(os.environ.get("HF_RETRY_DELAY_SECONDS", "1.5"))
+HF_ROUTER_CHAT_URL = os.environ.get("HF_ROUTER_CHAT_URL", "https://router.huggingface.co/v1/chat/completions")
+
+
+def build_hf_endpoint(model_name):
+    return f"https://router.huggingface.co/hf-inference/models/{model_name}"
+
+
+def get_hf_model_candidates():
+    candidates = [item.strip() for item in HF_MODEL_CANDIDATES_RAW.split(",") if item.strip()]
+    if HF_MODEL_NAME not in candidates:
+        candidates.append(HF_MODEL_NAME)
+    return candidates
+
+
+def sanitize_chat_history(chat_history):
+    if not isinstance(chat_history, list):
+        return []
+
+    cleaned = []
+    for item in chat_history[-8:]:
+        if not isinstance(item, dict):
+            continue
+        role_raw = str(item.get("type", "")).lower()
+        text = str(item.get("text", "")).strip()
+        if not text:
+            continue
+        role = "Patient" if role_raw == "user" else "Assistant"
+        cleaned.append(f"{role}: {text}")
+
+    return cleaned
+
+
+def build_lung_care_prompt(user_message, context="", chat_history=None):
+    history_lines = sanitize_chat_history(chat_history)
+    history_text = "\n".join(history_lines) if history_lines else "No previous turns in this chat."
+
+    return f"""You are BreatheCare, a compassionate AI care assistant specialized in lung and respiratory health.
+
+Rules:
+- Focus on lung disease care: asthma, COPD, pneumonia, bronchitis, cough, breathlessness, inhaler use, recovery, and symptom monitoring.
+- Questions about the patient's diagnosis report, severity, and what to do next are in scope.
+- Keep continuity with this same chat. If the patient asks a follow-up such as "so what should I care about", use previous turns and report context.
+- Decline only clearly unrelated domains (coding, finance, sports betting, gaming strategy, politics, etc.).
+- Do not provide definitive diagnosis. Encourage clinical follow-up for treatment changes.
+- If severe warning symptoms appear (severe shortness of breath, chest pain, blue lips, confusion, coughing blood), advise urgent care immediately.
+- Be practical and supportive. Prefer short action-oriented guidance.
+
+Patient report context:
+{context if context else 'No recent diagnosis report was provided.'}
+
+Recent chat context:
+{history_text}
+
+Current patient question:
+{user_message}
+
+Assistant response:"""
+
+
+def generate_hf_response(prompt, trace_id=None):
+    headers = {
+        "Authorization": f"Bearer {HF_API_TOKEN}",
+        "Content-Type": "application/json",
+    }
+    transient_status_codes = {429, 500, 502, 503, 504}
+    total_attempts = HF_MAX_RETRIES + 1
+    model_candidates = get_hf_model_candidates()
+
+    for model_name in model_candidates:
+        endpoint_url = HF_ROUTER_CHAT_URL
+        for attempt in range(1, total_attempts + 1):
+            chat_payload = {
+                "model": model_name,
+                "messages": [
+                    {"role": "system", "content": "You are a helpful lung-care assistant."},
+                    {"role": "user", "content": prompt},
+                ],
+                "max_tokens": 320,
+                "temperature": 0.4,
+                "top_p": 0.9,
+            }
+
+            response = requests.post(endpoint_url, headers=headers, json=chat_payload, timeout=60)
+            status_code = response.status_code
+            logging.info(
+                f"[chatbot:{trace_id}] HF attempt {attempt}/{total_attempts} "
+                f"status={status_code} model={model_name} endpoint={endpoint_url} mode=chat"
+            )
+
+            if status_code >= 400:
+                error_preview = (response.text or "")[:300]
+                if status_code in transient_status_codes and attempt < total_attempts:
+                    delay = HF_RETRY_DELAY_SECONDS * attempt
+                    logging.warning(
+                        f"[chatbot:{trace_id}] HF transient error status={status_code}. "
+                        f"Retrying in {delay:.1f}s. Body preview: {error_preview}"
+                    )
+                    time.sleep(delay)
+                    continue
+
+                # Some models/providers are not available for this token; try next model.
+                if status_code in {400, 402, 403, 404}:
+                    logging.warning(
+                        f"[chatbot:{trace_id}] Model unavailable on chat endpoint: {model_name}. "
+                        "Trying next candidate model."
+                    )
+                    break
+
+                logging.warning(
+                    f"[chatbot:{trace_id}] HF endpoint failed status={status_code} endpoint={endpoint_url}. "
+                    f"Body preview: {error_preview}"
+                )
+                break
+
+            data = response.json()
+            generated_text = ""
+
+            if isinstance(data, dict):
+                choices = data.get("choices")
+                if isinstance(choices, list) and choices:
+                    message_obj = choices[0].get("message") if isinstance(choices[0], dict) else None
+                    if isinstance(message_obj, dict):
+                        generated_text = str(message_obj.get("content", "")).strip()
+
+            if generated_text:
+                logging.info(
+                    f"[chatbot:{trace_id}] HF generated text length={len(generated_text)} "
+                    f"endpoint={endpoint_url} model={model_name} mode=chat"
+                )
+                return generated_text, model_name
+
+            if attempt < total_attempts:
+                delay = HF_RETRY_DELAY_SECONDS * attempt
+                logging.warning(
+                    f"[chatbot:{trace_id}] HF returned empty output on attempt {attempt}. "
+                    f"Retrying in {delay:.1f}s."
+                )
+                time.sleep(delay)
+                continue
+
+            logging.warning(
+                f"[chatbot:{trace_id}] HF returned empty output after {total_attempts} attempts "
+                f"endpoint={endpoint_url}"
+            )
+
+        # Fallback to legacy text-generation inference path for this model
+        endpoint_url = build_hf_endpoint(model_name)
+        for attempt in range(1, total_attempts + 1):
+            payload = {
+                "inputs": prompt,
+                "parameters": {
+                    "max_new_tokens": 256,
+                    "temperature": 0.4,
+                    "top_p": 0.9,
+                    "return_full_text": False,
+                },
+                "options": {
+                    "wait_for_model": True,
+                },
+            }
+
+            response = requests.post(endpoint_url, headers=headers, json=payload, timeout=60)
+            status_code = response.status_code
+            logging.info(
+                f"[chatbot:{trace_id}] HF attempt {attempt}/{total_attempts} "
+                f"status={status_code} model={model_name} endpoint={endpoint_url} mode=textgen"
+            )
+
+            if status_code >= 400:
+                error_preview = (response.text or "")[:300]
+                if status_code in transient_status_codes and attempt < total_attempts:
+                    delay = HF_RETRY_DELAY_SECONDS * attempt
+                    logging.warning(
+                        f"[chatbot:{trace_id}] HF transient error status={status_code}. "
+                        f"Retrying in {delay:.1f}s. Body preview: {error_preview}"
+                    )
+                    time.sleep(delay)
+                    continue
+
+                logging.warning(
+                    f"[chatbot:{trace_id}] HF textgen failed status={status_code} endpoint={endpoint_url}. "
+                    f"Body preview: {error_preview}"
+                )
+                break
+
+            data = response.json()
+            generated_text = ""
+            if isinstance(data, list) and data:
+                first_item = data[0]
+                if isinstance(first_item, dict):
+                    generated_text = (first_item.get("generated_text") or first_item.get("text") or "").strip()
+            elif isinstance(data, dict):
+                generated_text = (data.get("generated_text") or data.get("text") or data.get("answer") or "").strip()
+
+            if generated_text:
+                logging.info(
+                    f"[chatbot:{trace_id}] HF generated text length={len(generated_text)} "
+                    f"endpoint={endpoint_url} model={model_name} mode=textgen"
+                )
+                return generated_text, model_name
+
+            if attempt < total_attempts:
+                delay = HF_RETRY_DELAY_SECONDS * attempt
+                logging.warning(
+                    f"[chatbot:{trace_id}] HF returned empty output on attempt {attempt}. "
+                    f"Retrying in {delay:.1f}s."
+                )
+                time.sleep(delay)
+                continue
+
+            logging.warning(
+                f"[chatbot:{trace_id}] HF returned empty output after {total_attempts} attempts "
+                f"endpoint={endpoint_url} mode=textgen"
+            )
+
+        logging.warning(f"[chatbot:{trace_id}] Switching HF model after failures: {model_name}")
+
+    return "", None
+
+
+def is_report_question(user_message):
+    message = user_message.lower()
+    return any(term in message for term in [
+        "diagnosis report",
+        "my diagnosis report",
+        "latest report",
+        "report summary",
+        "what does my report mean",
+        "tell me about my diagnosis",
+        "tell me about my diagnosis report",
+        "explain my report",
+        "what is my diagnosis"
+    ])
+
+
+def is_follow_up_question(user_message):
+    message = user_message.lower().strip()
+    follow_up_terms = [
+        "what should i care",
+        "what should i do",
+        "what now",
+        "what about that",
+        "what about it",
+        "so now",
+        "next step",
+        "next steps",
+        "care about",
+        "is it serious",
+        "should i worry",
+        "what can i do"
+    ]
+    if any(term in message for term in follow_up_terms):
+        return True
+    return len(message.split()) <= 8 and any(token in message for token in ["so", "now", "it", "that", "this"])
+
+
+def is_doctor_consult_question(user_message):
+    message = user_message.lower()
+    consult_terms = [
+        "consult doctor",
+        "see a doctor",
+        "should i see a doctor",
+        "should i consult",
+        "do i need a doctor",
+        "doctor visit",
+        "book appointment",
+        "hospital",
+        "go to clinic",
+        "need medical help"
+    ]
+    return any(term in message for term in consult_terms)
+
+
+def is_clearly_unrelated_domain(user_message):
+    message = user_message.lower()
+    lung_related_terms = [
+        "lung", "respiratory", "breath", "asthma", "copd", "pneumonia", "bronch", "cough", "inhaler",
+        "diagnosis", "report", "symptom", "phlegm", "mucus", "oxygen", "chest"
+    ]
+    if any(term in message for term in lung_related_terms):
+        return False
+
+    unrelated_terms = [
+        "javascript", "python code", "react", "algorithm", "stocks", "crypto", "bitcoin", "forex",
+        "sports", "football", "basketball", "betting", "movie", "song", "gaming", "politics",
+        "travel", "recipe", "cooking", "homework", "exam answers"
+    ]
+    return any(term in message for term in unrelated_terms)
+
+
+def build_report_summary(report_doc):
+    if not report_doc:
+        return None
+
+    symptoms_list = report_doc.get("symptoms", []) or []
+    diagnosis = report_doc.get("final_prediction", "Unknown")
+    confidence = report_doc.get("final_confidence", 0)
+    severity = report_doc.get("severity", "Unknown")
+    age = report_doc.get("age")
+    sex = report_doc.get("sex")
+
+    return {
+        "age": age,
+        "sex": sex,
+        "symptoms": symptoms_list,
+        "diagnosis": diagnosis,
+        "confidence": confidence,
+        "severity": severity,
+    }
+
+
+def format_report_response(report_summary):
+    if not report_summary:
+        return "I could not find a recent diagnosis report for you yet. Please complete a new report, and I can explain it."
+
+    symptoms_text = ", ".join(report_summary.get("symptoms", [])) if report_summary.get("symptoms") else "none reported"
+    diagnosis = str(report_summary.get("diagnosis", "Unknown")).lower()
+    confidence = report_summary.get("confidence", 0)
+    severity = report_summary.get("severity", "Unknown")
+    age = report_summary.get("age", "not provided")
+    sex = report_summary.get("sex", "not provided")
+
+    return (
+        f"Your latest diagnosis report shows {diagnosis} with a confidence of {float(confidence):.2%}. "
+        f"Recorded symptoms were: {symptoms_text}. Severity was marked as {severity}. "
+        f"Patient details used for the report were age {age} and sex {sex}. "
+        f"This is not a final medical diagnosis, but it suggests your respiratory symptoms should be followed up with a doctor, especially if breathing gets worse. "
+        f"If you want, I can also explain what this means for daily care, inhaler use, or warning signs to watch for."
+    )
+
+
+def format_care_advice_response(report_summary):
+    if not report_summary:
+        return "Based on lung care best practices, focus on hydration, avoiding smoke and dust exposure, taking prescribed medicines correctly, and monitoring symptom worsening. If breathing gets worse, contact your doctor promptly."
+
+    diagnosis = str(report_summary.get("diagnosis", "lung condition")).lower()
+    symptoms = report_summary.get("symptoms", []) or []
+    severity = str(report_summary.get("severity", "Unknown"))
+    symptoms_text = ", ".join(symptoms) if symptoms else "your reported respiratory symptoms"
+
+    return (
+        f"Given your latest report ({diagnosis}, severity {severity}), here is what to care about most: "
+        f"1) Watch warning symptoms like increasing breathlessness, persistent fever, chest pain, confusion, or blue lips. "
+        f"2) Manage current symptoms ({symptoms_text}) with rest, hydration, and prescribed medicines/inhalers on time. "
+        f"3) Avoid triggers such as smoke, dust, strong fumes, and very cold air. "
+        f"4) Track symptoms daily and seek doctor review if you are not improving within 24-48 hours or symptoms worsen."
+    )
+
+
+def format_doctor_consult_response(report_summary):
+    if not report_summary:
+        return (
+            "If you are having ongoing breathing symptoms, yes, consulting a doctor is a good idea. "
+            "Seek urgent care immediately if you have severe shortness of breath, chest pain, blue lips, confusion, or cough blood."
+        )
+
+    diagnosis = str(report_summary.get("diagnosis", "lung condition")).lower()
+    severity = str(report_summary.get("severity", "Unknown")).lower()
+    symptoms = [str(item).lower() for item in (report_summary.get("symptoms", []) or [])]
+
+    emergency_terms = ["shortness of breath", "chest pain", "blue lips", "cough blood", "coughing blood", "confusion"]
+    has_emergency_signal = any(term in " ".join(symptoms) for term in emergency_terms)
+
+    if has_emergency_signal or severity in ["high", "severe", "critical"]:
+        return (
+            f"Yes, you should consult a doctor immediately. Your report suggests {diagnosis} with {severity} severity, "
+            "and these symptoms can worsen quickly. If breathing becomes difficult right now, go to emergency care."
+        )
+
+    if severity in ["moderate", "medium"]:
+        return (
+            f"Yes, based on your report ({diagnosis}, {severity} severity), you should consult a doctor soon (preferably within 24 hours) "
+            "to confirm treatment and prevent worsening. Seek urgent care sooner if symptoms intensify."
+        )
+
+    return (
+        f"A doctor consultation is still recommended for your {diagnosis} report, even if severity appears {severity}. "
+        "You can book a routine appointment and monitor symptoms closely in the meantime."
+    )
+
+
+def chat_history_has_report_context(chat_history):
+    if not isinstance(chat_history, list):
+        return False
+
+    for item in reversed(chat_history[-8:]):
+        if not isinstance(item, dict):
+            continue
+        role_raw = str(item.get("type", "")).lower()
+        text = str(item.get("text", "")).lower()
+        if role_raw == "ai" and any(term in text for term in ["diagnosis report", "latest diagnosis", "severity", "confidence"]):
+            return True
+
+    return False
+
+
+def fallback_lung_response(user_message, report_summary=None, chat_history=None):
+    message = user_message.lower()
+
+    if is_report_question(user_message):
+        return format_report_response(report_summary)
+
+    if is_doctor_consult_question(user_message):
+        return format_doctor_consult_response(report_summary)
+
+    if is_follow_up_question(user_message) and (report_summary or chat_history_has_report_context(chat_history)):
+        return format_care_advice_response(report_summary)
+
+    if is_clearly_unrelated_domain(user_message):
+        return "I am your lung care assistant, so I can only help with respiratory health, diagnosis reports, symptom care, and breathing-related guidance. Ask me anything in that area and I’ll help."
+
+    report_hint = ""
+    if report_summary:
+        report_hint = (
+            f" Based on your latest report: diagnosis {str(report_summary.get('diagnosis', 'Unknown')).lower()}, "
+            f"symptoms {', '.join(report_summary.get('symptoms', [])) if report_summary.get('symptoms') else 'none reported'}, "
+            f"severity {report_summary.get('severity', 'Unknown')}."
+        )
+
+    if any(term in message for term in ["breathless", "short of breath", "can't breathe", "chest pain", "coughing blood", "blue lips", "wheezing badly"]):
+        return "Your symptoms may need urgent medical review. Please seek immediate medical attention or contact emergency services now." + report_hint
+
+    if any(term in message for term in ["inhaler", "asthma", "copd", "pneumonia", "bronch", "cough", "mucus", "phlegm", "breathing", "symptom", "care"]):
+        return "I can help with lung disease care guidance, inhaler reminders, breathing exercises, symptom monitoring, and when to seek medical help." + report_hint + " Please share your specific lung symptom or concern, and I’ll respond within that scope."
+
+    return "I can support you with lung health and care planning. If your question is about your diagnosis, symptoms, medicines, breathing, or recovery, I can guide you." + report_hint
 
 
 def preprocess_audio(file_path):
@@ -978,8 +1416,12 @@ def review_appointment(appointment_id):
 
     data = request.get_json() or {}
     try:
-        rating = float(data.get("rating"))
+        rating_value = data.get("rating")
+        rating = float(rating_value) if rating_value is not None else None
     except (TypeError, ValueError):
+        return jsonify({"error": "Rating must be a number"}), 400
+
+    if rating is None:
         return jsonify({"error": "Rating must be a number"}), 400
 
     if rating < 1 or rating > 5:
@@ -1219,10 +1661,115 @@ def update_profile():
     return jsonify({"message": "Profile updated successfully"}), 200
 
 
+# -------------------------------
+# Chatbot Endpoint - Lung Disease Care Assistant
+# -------------------------------
+@app.route('/chatbot/ask', methods=['POST'])
+@jwt_required()
+def chatbot_ask():
+    """
+    Chatbot endpoint that uses Hugging Face inference to provide lung disease-specific responses.
+    
+    Expected JSON payload:
+    {
+        "message": "User's question",
+        "include_context": true/false (optional, default: true)
+    }
+    """
+    try:
+        trace_id = str(uuid.uuid4())[:8]
+        # Get authenticated user
+        user_id = get_jwt_identity()
+        claims = get_jwt()
+        role = claims.get("role")
+        
+        # Only patients can use chatbot
+        if role != "patient":
+            return jsonify({"error": "Only patients can use the chatbot"}), 403
+        
+        # Get request data
+        data = request.get_json() or {}
+        user_message = (data.get("message") or "").strip()
+        include_context = data.get("include_context", True)
+        chat_history = data.get("chat_history", [])
+        logging.info(
+            f"[chatbot:{trace_id}] Incoming request role={role} "
+            f"message_len={len(user_message)} history_len={len(chat_history) if isinstance(chat_history, list) else 0}"
+        )
+        
+        if not user_message:
+            return jsonify({"error": "Message cannot be empty"}), 400
+        
+        # Get patient's latest diagnosis report for context
+        context = ""
+        latest_report = None
+        if include_context:
+            try:
+                patient = patients_collection.find_one({"_id": ObjectId(user_id)})
+                if patient:
+                    latest_report = reports_collection.find_one(
+                        {"patient_id": str(patient.get("_id"))},
+                        sort=[("created_at", -1)]
+                    )
+                    
+                    if latest_report:
+                        symptoms_list = latest_report.get("symptoms", [])
+                        age = latest_report.get("age")
+                        sex = latest_report.get("sex")
+                        diagnosis = latest_report.get("final_prediction", "Unknown")
+                        confidence = latest_report.get("final_confidence", 0)
+                        severity = latest_report.get("severity", "Unknown")
+                        
+                        context = f"""
+PATIENT CONTEXT (for personalized response):
+- Age: {age}
+- Sex: {sex}
+- Reported Symptoms: {', '.join(symptoms_list) if symptoms_list else 'None reported'}
+- Latest Diagnosis: {diagnosis} (Confidence: {confidence:.2%})
+- Severity Level: {severity}
 
-# -------------------------------
+Please provide a response tailored to this patient's condition and history.
+"""
+            except Exception as e:
+                logging.warning(f"Could not fetch patient context: {e}")
+                context = ""
+
+        report_summary = build_report_summary(latest_report)
+        full_message = build_lung_care_prompt(user_message, context, chat_history)
+        response_source = "fallback"
+        response_model = None
+
+        try:
+            ai_response, response_model = generate_hf_response(full_message, trace_id=trace_id)
+        except Exception as hf_error:
+            logging.warning(f"[chatbot:{trace_id}] Hugging Face chatbot call failed: {hf_error}")
+            ai_response = ""
+            response_model = None
+
+        if not ai_response:
+            ai_response = fallback_lung_response(user_message, report_summary, chat_history)
+            logging.info(f"[chatbot:{trace_id}] Responded via fallback")
+        else:
+            response_source = "model"
+            logging.info(f"[chatbot:{trace_id}] Responded via model model={response_model}")
+        
+        return jsonify({
+            "response": ai_response,
+            "success": True,
+            "source": response_source,
+            "model": response_model,
+            "trace_id": trace_id
+        }), 200
+        
+    except Exception as e:
+        logging.error(f"Chatbot error: {str(e)}")
+        return jsonify({
+            "error": f"Failed to process chatbot request: {str(e)}",
+            "success": False
+        }), 500
+
+
 # Run App
-# -------------------------------
 if __name__ == '__main__':
     # Log registered routes for debugging
     for rule in app.url_map.iter_rules():

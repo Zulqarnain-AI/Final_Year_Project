@@ -1,4 +1,4 @@
-import { FileText, AlertTriangle, BarChart3, Heart,Hospital } from "lucide-react"
+import { FileText, AlertTriangle, BarChart3, Heart, Hospital, MessageCircle } from "lucide-react"
 import { Link } from "react-router-dom"
 
 const features = [
@@ -38,6 +38,12 @@ const features = [
     title: "Doctor Appointment",
     description: "Schedule an appointment with a doctor by sending an appointment request",
     link: "/DoctorList"
+  },
+  {
+    icon: MessageCircle,
+    title: "BreatheCare Assistant",
+    description: "Chat with your personal lung health AI assistant for care guidance",
+    link: "/chatbot"
   },
 ]
 
