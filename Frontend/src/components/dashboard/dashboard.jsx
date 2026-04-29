@@ -6,7 +6,7 @@ import State from './overviewState'
 function Dashboard() {
   return (
     <>
-    <div className="px-[20px] py-[20px] hide-scrollbar  h-screen overflow-y-scroll">
+    <div className="px-4 sm:px-5 py-5 hide-scrollbar h-screen overflow-y-auto overflow-x-hidden">
         <Banner />
         <Card />
         <State />

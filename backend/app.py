@@ -1121,12 +1121,36 @@ def dashboard():
     claims = get_jwt()
     role = claims.get("role")
 
+    def _count_by_gender(collection, gender_value):
+        return collection.count_documents({"gender": {"$regex": f"^{gender_value}$", "$options": "i"}})
+
+    patient_gender_counts = {
+        "male": _count_by_gender(patients_collection, "male"),
+        "female": _count_by_gender(patients_collection, "female"),
+    }
+    patient_gender_counts["other"] = max(0, patients_collection.count_documents({}) - patient_gender_counts["male"] - patient_gender_counts["female"])
+
+    doctor_gender_counts = {
+        "male": _count_by_gender(doctors_collection, "male"),
+        "female": _count_by_gender(doctors_collection, "female"),
+    }
+    doctor_gender_counts["other"] = max(0, doctors_collection.count_documents({}) - doctor_gender_counts["male"] - doctor_gender_counts["female"])
+
+    total_patients = patients_collection.count_documents({})
+    total_doctors = doctors_collection.count_documents({})
+    overall_users = total_patients + total_doctors
+
     if role == "patient":
         total_reports = reports_collection.count_documents({"patient_id": user_id})
         total_appointments = appointments_collection.count_documents({"patient_id": user_id})
 
         return jsonify({
             "role": role,
+            "total_patients": total_patients,
+            "total_doctors": total_doctors,
+            "overall_users": overall_users,
+            "patient_gender_counts": patient_gender_counts,
+            "doctor_gender_counts": doctor_gender_counts,
             "total_reports": total_reports,
             "total_appointments": total_appointments
         })
@@ -1141,6 +1165,10 @@ def dashboard():
         return jsonify({
             "role": role,
             "total_patients": total_patients,
+            "total_doctors": total_doctors,
+            "overall_users": overall_users,
+            "patient_gender_counts": patient_gender_counts,
+            "doctor_gender_counts": doctor_gender_counts,
             "pending_appointments": pending_appointments
         })
 
@@ -1659,6 +1687,48 @@ def update_profile():
         )
 
     return jsonify({"message": "Profile updated successfully"}), 200
+
+
+# -------------------------------
+# Change Password
+# -------------------------------
+@app.route('/change-password', methods=['POST'])
+@jwt_required()
+def change_password():
+    """Protected endpoint to change the authenticated user's password.
+
+    Expected JSON: { "currentPassword": "...", "newPassword": "..." }
+    """
+    try:
+        data = request.get_json() or {}
+        current = data.get('currentPassword')
+        new_pass = data.get('newPassword')
+
+        if not current or not new_pass:
+            return jsonify({'error': 'currentPassword and newPassword are required'}), 400
+
+        if len(new_pass) < 8:
+            return jsonify({'error': 'New password must be at least 8 characters'}), 400
+
+        user_id = get_jwt_identity()
+        claims = get_jwt()
+        role = claims.get('role')
+
+        collection = doctors_collection if role == 'doctor' else patients_collection
+        user = collection.find_one({'_id': ObjectId(user_id)})
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        if not check_password_hash(user.get('password', ''), current):
+            return jsonify({'error': 'Current password is incorrect'}), 401
+
+        hashed = generate_password_hash(new_pass)
+        collection.update_one({'_id': ObjectId(user_id)}, {'$set': {'password': hashed}})
+
+        return jsonify({'message': 'Password updated successfully'}), 200
+    except Exception as e:
+        logging.exception('Error changing password')
+        return jsonify({'error': 'Failed to change password', 'details': str(e)}), 500
 
 
 # -------------------------------
