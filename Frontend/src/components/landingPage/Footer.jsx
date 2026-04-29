@@ -90,7 +90,7 @@ function Footer() {
           {/* Bottom Bar */}
           <div className="border-t border-gray-800 pt-8 text-center">
             <p className="text-gray-400 text-lg">
-              © 2025 Lung Health Monitor. All rights reserved.
+              © 2025 BretheWell. All rights reserved.
             </p>
           </div>
         </div>

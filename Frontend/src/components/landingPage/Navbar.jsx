@@ -49,10 +49,10 @@ function Navbar() {
               >
                 <a href="#contact">Contact</a>
               </li>
-              <li className="cursor-pointer" onClick={() => setForm(!form)}>
-                <button className="primary-bg  hover:border-primary hover:border-1  hover:bg-white hover:text-black text-white py-1 px-4 rounded-full">
+              <li className="cursor-pointer" >
+                <Link to="/login"className="primary-bg  hover:border-primary hover:border-1  hover:bg-white hover:text-black text-white py-1 px-4 rounded-full">
                   Get Started
-                </button>
+                </Link>
               </li>
             </ul>
           </div>

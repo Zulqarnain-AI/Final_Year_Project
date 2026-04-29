@@ -15,7 +15,7 @@ import os
 import json
 import numpy as np
 import pandas as pd
-import tensorflow as tf
+import tensorflow as tf # type: ignore
 import librosa
 from tempfile import NamedTemporaryFile
 from datetime import datetime
@@ -285,7 +285,7 @@ def build_lung_care_prompt(user_message, context="", chat_history=None):
     history_lines = sanitize_chat_history(chat_history)
     history_text = "\n".join(history_lines) if history_lines else "No previous turns in this chat."
 
-    return f"""You are BreatheCare, a compassionate AI care assistant specialized in lung and respiratory health.
+    return f"""You are BreatheWell, a compassionate AI care assistant specialized in lung and respiratory health.
 
 Rules:
 - Focus on lung disease care: asthma, COPD, pneumonia, bronchitis, cough, breathlessness, inhaler use, recovery, and symptom monitoring.

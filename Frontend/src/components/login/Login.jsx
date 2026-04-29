@@ -7,8 +7,7 @@ import RegisterForm from "./RegisterForm"
 
 function Login() {
   const [registerForm, setRegisterForm] = useState(false)
-  const [showLanguageMenu, setShowLanguageMenu] = useState(false)
-  const selectedLanguage = "English"
+  
   const [success, setSuccess] = useState("") // STATE for success message
   const [error, setError] = useState("")     // STATE for API error message
 
@@ -43,16 +42,7 @@ function Login() {
 
             {/* Right Actions */}
             <div className="flex items-center gap-6 text-sm font-medium">
-              <div className="relative">
-                <button
-                  onClick={() => setShowLanguageMenu(!showLanguageMenu)}
-                  className="text-gray-600 cursor-pointer hover:text-teal-500 transition flex items-center gap-1 px-3 py-2 rounded hover:bg-gray-50"
-                >
-                  🌐 {selectedLanguage}
-                  <span className={`transition-transform ${showLanguageMenu ? "rotate-180" : ""}`}>▼</span>
-                </button>
-                
-              </div>
+              
 
               {/* Update Link to trigger switch to login view */}
               <button onClick={switchToLogin} className="text-teal-500 hover:text-teal-600 underline">

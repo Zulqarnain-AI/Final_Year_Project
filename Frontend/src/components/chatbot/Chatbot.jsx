@@ -25,7 +25,7 @@ function Chatbot() {
   const [chatHistory, setChatHistory] = useState([
     createMessage(
       "ai",
-      "Hello, I am BreatheCare, your lung health care assistant. I can explain your diagnosis report, help with symptom care, and guide you on what to monitor day by day."
+      "Hello, I am BreatheWell, your lung health care assistant. I can explain your diagnosis report, help with symptom care, and guide you on what to monitor day by day."
     )
   ]); 
   

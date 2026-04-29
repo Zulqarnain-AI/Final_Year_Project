@@ -1,3 +1,5 @@
+import { BrowserRouter as Router, Routes, Route, Outlet } from "react-router-dom"
+
 import Home from "./components/landingPage/Navbar"
 import Herosection from "./components/landingPage/HeroSection"
 import Login from "./components/login/Login"
@@ -6,8 +8,6 @@ import Input from "./components/input/Input"
 import Landing from "./components/landingPage/Landing"
 import Uploadcough from "./components/input/UploadInput"
 import Report from "./components/input/Report"
-
-import { BrowserRouter as Router, Routes, Route, Outlet } from "react-router-dom"
 import RegisterForm from "./components/login/RegisterForm"
 import EnvironmentalAlertView from "./components/evironmentAlert/environmental_alert_view"
 import DoctorList from "./components/doctor_apointment/DoctorList"
