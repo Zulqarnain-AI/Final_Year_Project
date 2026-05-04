@@ -14,18 +14,18 @@ const starterPrompts = [
 const CHATBOT_CONVERSATIONS_URL = `${API_BASE_URL}/chatbot/conversations`;
 
 const markdownComponents = {
-  h1: ({ ...props }) => <h1 className="text-lg font-bold mt-3 mb-2" {...props} />,
-  h2: ({ ...props }) => <h2 className="text-base font-semibold mt-3 mb-2" {...props} />,
-  h3: ({ ...props }) => <h3 className="text-sm font-semibold mt-3 mb-2" {...props} />,
-  p: ({ ...props }) => <p className="mb-2 leading-relaxed" {...props} />,
-  ul: ({ ...props }) => <ul className="list-disc ml-5 mb-2 space-y-1" {...props} />,
-  ol: ({ ...props }) => <ol className="list-decimal ml-5 mb-2 space-y-1" {...props} />,
+  h1: ({ ...props }) => <h1 className="text-lg font-bold mt-2 mb-1" {...props} />,
+  h2: ({ ...props }) => <h2 className="text-base font-semibold mt-2 mb-1" {...props} />,
+  h3: ({ ...props }) => <h3 className="text-sm font-semibold mt-2 mb-1" {...props} />,
+  p: ({ ...props }) => <p className="mb-1 leading-snug last:mb-0" {...props} />,
+  ul: ({ ...props }) => <ul className="list-disc ml-5 mb-1 space-y-0.5" {...props} />,
+  ol: ({ ...props }) => <ol className="list-decimal ml-5 mb-1 space-y-0.5" {...props} />,
   li: ({ ...props }) => <li className="leading-relaxed" {...props} />,
-  table: ({ ...props }) => <table className="w-full border-collapse text-xs md:text-sm my-3" {...props} />,
+  table: ({ ...props }) => <table className="w-full border-collapse text-xs md:text-sm my-2" {...props} />,
   thead: ({ ...props }) => <thead className="bg-slate-800/70" {...props} />,
   th: ({ ...props }) => <th className="border border-slate-500/40 px-2 py-1 text-left" {...props} />,
   td: ({ ...props }) => <td className="border border-slate-500/40 px-2 py-1 align-top" {...props} />,
-  hr: ({ ...props }) => <hr className="border-slate-500/40 my-3" {...props} />,
+  hr: ({ ...props }) => <hr className="border-slate-500/40 my-2" {...props} />,
   code: ({ inline, ...props }) =>
     inline ? (
       <code className="bg-slate-800 px-1 rounded text-cyan-200" {...props} />
@@ -54,6 +54,12 @@ const createMessage = (type, text) => ({
   time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
   isStreaming: false,
 });
+
+const normalizeAssistantText = (value) =>
+  String(value || "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 
 function Chatbot() {
   const [question, setQuestion] = useState(""); 
@@ -114,7 +120,7 @@ function Chatbot() {
     const mapped = messages.map((message) => ({
       id: message.id || `${message.role}-${Math.random().toString(36).slice(2, 8)}`,
       type: message.role === "assistant" ? "ai" : "user",
-      text: String(message.content || ""),
+      text: message.role === "assistant" ? normalizeAssistantText(message.content) : String(message.content || ""),
       time: formatTimeLabel(message.created_at),
       isStreaming: false,
     }));
@@ -204,14 +210,14 @@ function Chatbot() {
                         ? 'bg-cyan-500 rounded-br-sm text-slate-950' 
                         : 'bg-slate-700/90 rounded-tl-sm text-slate-100 text-left border border-slate-500/40 overflow-x-auto'
                   }`}
-                  style={{ whiteSpace: 'pre-wrap', wordWrap: 'break-word' }} 
+                  style={{ whiteSpace: isUser ? 'pre-wrap' : 'normal', wordWrap: 'break-word' }} 
               >
                   {isUser ? (
                     <p>{text}</p>
                   ) : (
                     <div className="markdown-body">
                       <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                        {text}
+                        {normalizeAssistantText(text)}
                       </ReactMarkdown>
                       {isStreaming && <span className="inline-block ml-1 w-2 h-4 bg-cyan-300 animate-pulse" />}
                     </div>
@@ -307,7 +313,7 @@ function Chatbot() {
       }
 
       // 3. Extract AI response
-      const aiResponseText = responseData.response || "Sorry, I received an empty response. Please try again.";
+      const aiResponseText = normalizeAssistantText(responseData.response || "Sorry, I received an empty response. Please try again.");
 
       // 4. Stream AI response into the placeholder bubble
       await streamAssistantText(assistantMessageId, aiResponseText);
