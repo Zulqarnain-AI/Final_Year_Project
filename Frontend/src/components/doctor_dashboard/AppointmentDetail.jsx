@@ -53,8 +53,8 @@ function AppointmentDetail() {
         <p><strong>Patient:</strong> {appt.patientName} ({appt.patientId})</p>
         <p><strong>Age / Sex:</strong> {appt.patientAge || 'N/A'} / {appt.patientSex || 'N/A'}</p>
         <p><strong>Date:</strong> {appt.date} at {appt.time}</p>
-        <p><strong>Notes:</strong> {appt.additionalInfo || 'N/A'}</p>
         <p><strong>Status:</strong> {appt.status}</p>
+        <p><strong>Notes:</strong> {appt.additionalInfo || 'N/A'}</p>
 
         <div className="mt-4 rounded-lg border border-cyan-100 bg-cyan-50 p-4">
           <h3 className="font-semibold text-cyan-800 mb-2">Latest AI Diagnosis Summary</h3>
@@ -63,8 +63,8 @@ function AppointmentDetail() {
               <p><strong>Condition:</strong> {diagnosis.final_prediction || 'N/A'}</p>
               <p><strong>Severity:</strong> {diagnosis.severity || 'N/A'}</p>
               <p><strong>Confidence:</strong> {confidencePercent}</p>
-              <p><strong>Symptoms:</strong> {Array.isArray(diagnosis.symptoms) && diagnosis.symptoms.length > 0 ? diagnosis.symptoms.join(', ') : 'N/A'}</p>
               <p><strong>Report Date:</strong> {diagnosis.created_at ? new Date(diagnosis.created_at).toLocaleDateString() : 'N/A'}</p>
+              <p><strong>Symptoms:</strong> {Array.isArray(diagnosis.symptoms) && diagnosis.symptoms.length > 0 ? diagnosis.symptoms.join(', ') : 'N/A'}</p>
             </div>
           ) : (
             <p className="text-sm text-slate-600">No recent diagnosis report available for this patient.</p>

@@ -83,9 +83,13 @@ def list_patient_appointments(user_id):
     appts = []
     for a in find_patient_appointments(user_id):
         a["id"] = str(a.get("_id"))
+        if a.get("created_at"):
+            a["created_at"] = a.get("created_at").isoformat()
+        if a.get("updated_at"):
+            a["updated_at"] = a.get("updated_at").isoformat()
         appts.append(a)
 
-    appts.sort(key=lambda item: item.get("created_at") or datetime.min, reverse=True)
+    appts.sort(key=lambda item: item.get("created_at") or datetime.min.isoformat(), reverse=True)
     return appts, 200
 
 
@@ -93,9 +97,13 @@ def list_doctor_appointments(user_id):
     appts = []
     for a in find_doctor_appointments(user_id):
         a["id"] = str(a.get("_id"))
+        if a.get("created_at"):
+            a["created_at"] = a.get("created_at").isoformat()
+        if a.get("updated_at"):
+            a["updated_at"] = a.get("updated_at").isoformat()
         appts.append(a)
 
-    appts.sort(key=lambda item: item.get("created_at") or datetime.min, reverse=True)
+    appts.sort(key=lambda item: item.get("created_at") or datetime.min.isoformat(), reverse=True)
     return appts, 200
 
 
@@ -104,6 +112,10 @@ def get_appointment(appointment_id):
     if not a:
         return {"error": "Appointment not found"}, 404
     a["id"] = str(a.get("_id"))
+    if a.get("created_at"):
+        a["created_at"] = a.get("created_at").isoformat()
+    if a.get("updated_at"):
+        a["updated_at"] = a.get("updated_at").isoformat()
     return a, 200
 
 
