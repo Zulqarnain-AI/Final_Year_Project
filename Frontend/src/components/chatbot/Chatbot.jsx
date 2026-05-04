@@ -1,5 +1,8 @@
-import React, { useState, useEffect, useRef } from "react";
-import { CHATBOT_API_URL } from "../../constant.js"; 
+import React, { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
+import { API_BASE_URL, CHATBOT_API_URL } from "../../constant.js";
 
 const starterPrompts = [
   "Can you tell me about my diagnosis report?",
@@ -8,11 +11,48 @@ const starterPrompts = [
   "Give me a daily lung care routine"
 ];
 
+const CHATBOT_CONVERSATIONS_URL = `${API_BASE_URL}/chatbot/conversations`;
+
+const markdownComponents = {
+  h1: ({ ...props }) => <h1 className="text-lg font-bold mt-3 mb-2" {...props} />,
+  h2: ({ ...props }) => <h2 className="text-base font-semibold mt-3 mb-2" {...props} />,
+  h3: ({ ...props }) => <h3 className="text-sm font-semibold mt-3 mb-2" {...props} />,
+  p: ({ ...props }) => <p className="mb-2 leading-relaxed" {...props} />,
+  ul: ({ ...props }) => <ul className="list-disc ml-5 mb-2 space-y-1" {...props} />,
+  ol: ({ ...props }) => <ol className="list-decimal ml-5 mb-2 space-y-1" {...props} />,
+  li: ({ ...props }) => <li className="leading-relaxed" {...props} />,
+  table: ({ ...props }) => <table className="w-full border-collapse text-xs md:text-sm my-3" {...props} />,
+  thead: ({ ...props }) => <thead className="bg-slate-800/70" {...props} />,
+  th: ({ ...props }) => <th className="border border-slate-500/40 px-2 py-1 text-left" {...props} />,
+  td: ({ ...props }) => <td className="border border-slate-500/40 px-2 py-1 align-top" {...props} />,
+  hr: ({ ...props }) => <hr className="border-slate-500/40 my-3" {...props} />,
+  code: ({ inline, ...props }) =>
+    inline ? (
+      <code className="bg-slate-800 px-1 rounded text-cyan-200" {...props} />
+    ) : (
+      <code className="block bg-slate-900/90 p-2 rounded overflow-x-auto" {...props} />
+    ),
+};
+
+const formatTimeLabel = (value) => {
+  if (!value) {
+    return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+
+  return parsed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+};
+
 const createMessage = (type, text) => ({
   id: `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
   type,
   text,
-  time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+  isStreaming: false,
 });
 
 function Chatbot() {
@@ -20,7 +60,10 @@ function Chatbot() {
   const [isLoading, setIsLoading] = useState(false);
   const [token, setToken] = useState("");
   const [error, setError] = useState("");
+  const [conversations, setConversations] = useState([]);
+  const [activeConversationId, setActiveConversationId] = useState(null);
   const chatEndRef = useRef(null);
+  const hasBootstrapped = useRef(false);
   
   const [chatHistory, setChatHistory] = useState([
     createMessage(
@@ -29,6 +72,97 @@ function Chatbot() {
     )
   ]); 
   
+  const fetchConversations = async (authToken, options = {}) => {
+    const response = await fetch(CHATBOT_CONVERSATIONS_URL, {
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.error || `Unable to fetch conversations (${response.status})`);
+    }
+
+    const payload = await response.json();
+    const items = Array.isArray(payload?.conversations) ? payload.conversations : [];
+    setConversations(items);
+
+    if (options.autoOpenLatest && items.length > 0 && !activeConversationId) {
+      await loadConversation(items[0].id, authToken);
+    }
+  };
+
+  const loadConversation = async (conversationId, authToken = token) => {
+    if (!conversationId || !authToken) return;
+
+    const response = await fetch(`${CHATBOT_CONVERSATIONS_URL}/${conversationId}`, {
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.error || `Unable to load conversation (${response.status})`);
+    }
+
+    const payload = await response.json();
+    const conversation = payload?.conversation;
+    const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
+
+    const mapped = messages.map((message) => ({
+      id: message.id || `${message.role}-${Math.random().toString(36).slice(2, 8)}`,
+      type: message.role === "assistant" ? "ai" : "user",
+      text: String(message.content || ""),
+      time: formatTimeLabel(message.created_at),
+      isStreaming: false,
+    }));
+
+    setActiveConversationId(conversationId);
+    setChatHistory(
+      mapped.length > 0
+        ? mapped
+        : [
+            createMessage(
+              "ai",
+              "Hello, I am BreatheWell, your lung health care assistant. Ask me about respiratory care and your diagnosis history."
+            ),
+          ]
+    );
+    setError("");
+  };
+
+  const streamAssistantText = (messageId, fullText) =>
+    new Promise((resolve) => {
+      const text = String(fullText || "");
+      if (!text) {
+        setChatHistory((prev) =>
+          prev.map((message) => (message.id === messageId ? { ...message, text: "", isStreaming: false } : message))
+        );
+        resolve();
+        return;
+      }
+
+      let index = 0;
+      const chunkSize = Math.max(2, Math.ceil(text.length / 120));
+      const timer = setInterval(() => {
+        index = Math.min(text.length, index + chunkSize);
+        const slice = text.slice(0, index);
+
+        setChatHistory((prev) =>
+          prev.map((message) =>
+            message.id === messageId ? { ...message, text: slice, isStreaming: index < text.length } : message
+          )
+        );
+
+        if (index >= text.length) {
+          clearInterval(timer);
+          resolve();
+        }
+      }, 18);
+    });
+
   // Get auth token on component mount
   useEffect(() => {
     const savedToken = localStorage.getItem("access_token");
@@ -44,9 +178,18 @@ function Chatbot() {
       chatEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [chatHistory, isLoading]);
+
+  useEffect(() => {
+    if (!token || hasBootstrapped.current) return;
+
+    hasBootstrapped.current = true;
+    fetchConversations(token, { autoOpenLatest: true }).catch((err) => {
+      setError(err.message || "Unable to load chat history");
+    });
+  }, [token]);
   
   // Helper component to render a single message bubble
-  const ChatMessage = ({ type, text, time }) => {
+  const ChatMessage = ({ type, text, time, isStreaming }) => {
       const isUser = type === 'user';
       return (
           <div className={`flex mb-5 ${isUser ? 'justify-end' : 'justify-start'}`}>
@@ -59,11 +202,20 @@ function Chatbot() {
                   className={`max-w-[85%] lg:max-w-2xl p-3 rounded-2xl shadow-lg text-sm md:text-base ${
                       isUser 
                         ? 'bg-cyan-500 rounded-br-sm text-slate-950' 
-                        : 'bg-slate-700/90 rounded-tl-sm text-slate-100 text-left border border-slate-500/40'
+                        : 'bg-slate-700/90 rounded-tl-sm text-slate-100 text-left border border-slate-500/40 overflow-x-auto'
                   }`}
                   style={{ whiteSpace: 'pre-wrap', wordWrap: 'break-word' }} 
               >
-                  <p>{text}</p>
+                  {isUser ? (
+                    <p>{text}</p>
+                  ) : (
+                    <div className="markdown-body">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                        {text}
+                      </ReactMarkdown>
+                      {isStreaming && <span className="inline-block ml-1 w-2 h-4 bg-cyan-300 animate-pulse" />}
+                    </div>
+                  )}
                   <p className={`mt-1 text-[11px] ${isUser ? 'text-slate-800/80' : 'text-slate-300/70'}`}>
                     {time}
                   </p>
@@ -82,6 +234,7 @@ function Chatbot() {
   };
 
   const clearChat = () => {
+    setActiveConversationId(null);
     setChatHistory([
       createMessage(
         "ai",
@@ -103,11 +256,20 @@ function Chatbot() {
       type: msg.type,
       text: msg.text
     }));
+
+    const assistantMessageId = `ai-stream-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     
     // 1. Add user message and set loading state
     setChatHistory(prev => [
       ...prev, 
-      createMessage("user", userQuery)
+      createMessage("user", userQuery),
+      {
+        id: assistantMessageId,
+        type: "ai",
+        text: "",
+        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        isStreaming: true,
+      },
     ]);
     setQuestion("");
     setIsLoading(true);
@@ -120,7 +282,8 @@ function Chatbot() {
         body: JSON.stringify({
           message: userQuery,
           include_context: true,
-          chat_history: payloadHistory
+          chat_history: payloadHistory,
+          conversation_id: activeConversationId,
         }),
         headers: {
           "Content-Type": "application/json",
@@ -139,14 +302,18 @@ function Chatbot() {
         throw new Error(responseData.error || "Failed to get response from chatbot");
       }
       
+      if (responseData.conversation_id) {
+        setActiveConversationId(responseData.conversation_id);
+      }
+
       // 3. Extract AI response
       const aiResponseText = responseData.response || "Sorry, I received an empty response. Please try again.";
-      
-      // 4. Add AI message to the chat history
-      setChatHistory(prev => [
-        ...prev, 
-        createMessage("ai", aiResponseText)
-      ]);
+
+      // 4. Stream AI response into the placeholder bubble
+      await streamAssistantText(assistantMessageId, aiResponseText);
+
+      // 5. Refresh sidebar conversations after successful save
+      await fetchConversations(token);
 
     } catch (error) {
       console.error("Chatbot error:", error);
@@ -164,14 +331,17 @@ function Chatbot() {
         errorMessage += `Details: ${error.message}`;
       }
       
-      setChatHistory(prev => [
-        ...prev, 
-        createMessage("ai", errorMessage)
-      ]);
+      setChatHistory((prev) =>
+        prev.map((message) =>
+          message.id === assistantMessageId
+            ? { ...message, text: errorMessage, isStreaming: false }
+            : message
+        )
+      );
       setError(errorMessage);
 
     } finally {
-      // 5. Always stop loading
+      // 6. Always stop loading
       setIsLoading(false);
     }
   };
@@ -181,9 +351,9 @@ function Chatbot() {
       <main className="grid grid-cols-1 lg:grid-cols-5 h-[calc(100vh-120px)] min-h-0 rounded-3xl overflow-hidden border border-cyan-100/70 bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-900 text-white shadow-2xl">
         <div className="lg:col-span-2 xl:col-span-1 bg-slate-900/80 p-5 border-b lg:border-b-0 lg:border-r border-slate-600/40 overflow-y-auto">
           <h1 className="text-2xl font-bold tracking-tight">BreatheCare</h1>
-          <p className="mt-2 text-sm text-slate-300">Respiratory Care Assistant</p>
+          {/* <p className="mt-2 text-sm text-slate-300">Respiratory Care Assistant</p> */}
 
-          <div className="mt-6">
+          {/* <div className="mt-6">
             <p className="text-xs uppercase tracking-wider text-cyan-200/80 mb-2">Quick prompts</p>
             <div className="space-y-2">
               {starterPrompts.map((prompt) => (
@@ -196,14 +366,42 @@ function Chatbot() {
                 </button>
               ))}
             </div>
-          </div>
+          </div> */}
 
           <button
             onClick={clearChat}
-            className="mt-6 w-full rounded-xl bg-cyan-500/80 hover:bg-cyan-400 text-slate-950 font-semibold py-2 transition-colors"
+            className="mt-1 w-full rounded-xl bg-cyan-500/80 hover:bg-cyan-400 text-slate-950 font-semibold py-1 transition-colors"
           >
             Start New Chat
           </button>
+
+          <div className="mt-2">
+            <p className="text-xs uppercase tracking-wider text-cyan-200/80 mb-2">Recent chats</p>
+            <div className="space-y-1 max-h-60 overflow-y-auto pr-1">
+              {conversations.length === 0 && (
+                <div className="text-xs text-slate-400">No saved conversations yet.</div>
+              )}
+              {conversations.map((conversation) => {
+                const isActive = activeConversationId === conversation.id;
+                return (
+                  <button
+                    key={conversation.id}
+                    onClick={() => loadConversation(conversation.id).catch((err) => setError(err.message || "Unable to open chat"))}
+                    className={`w-full text-left px-2 py-1 rounded-xl border transition-colors ${
+                      isActive
+                        ? "bg-cyan-700/60 border-cyan-300/50"
+                        : "bg-slate-800/80 border-slate-500/30 hover:bg-slate-700/80"
+                    }`}
+                  >
+                    <p className="text-sm font-medium line-clamp-2">{conversation.title || "New Chat"}</p>
+                    <p className="text-[11px] text-slate-300 mt-1">
+                      {formatTimeLabel(conversation.updated_at)} • {conversation.message_count || 0} msgs
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           <div className="mt-6 text-xs text-slate-400 leading-relaxed">
             Ask about diagnosis reports, symptoms, breathing care, and warning signs. Unrelated domains are intentionally blocked.
@@ -216,7 +414,13 @@ function Chatbot() {
           {/* Chat Container */}
           <div className="flex-1 min-h-0 overflow-y-auto pr-1 p-2 md:p-4">
             {chatHistory.map((msg, index) => (
-              <ChatMessage key={msg.id || index} type={msg.type} text={msg.text} time={msg.time} />
+              <ChatMessage
+                key={msg.id || index}
+                type={msg.type}
+                text={msg.text}
+                time={msg.time}
+                isStreaming={msg.isStreaming}
+              />
             ))}
             
             {/* Loading Indicator */}

@@ -20,19 +20,19 @@ def create_app():
     from app.routes.appointment_routes import appointment_bp
     from app.routes.audio_routes import audio_bp
     from app.routes.auth_routes import auth_bp
-    from app.routes.dashboard_routes import dashboard_bp
     from app.routes.chatbot_routes import chatbot_bp
+    from app.routes.dashboard_routes import dashboard_bp
     from app.routes.doctor_routes import doctor_bp
     from app.routes.patient_routes import patient_bp
     from app.routes.report_routes import report_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
+    app.register_blueprint(chatbot_bp)
     app.register_blueprint(patient_bp)
     app.register_blueprint(doctor_bp)
     app.register_blueprint(report_bp)
     app.register_blueprint(appointment_bp)
-    app.register_blueprint(chatbot_bp)
     app.register_blueprint(audio_bp)
 
     @jwt.invalid_token_loader
