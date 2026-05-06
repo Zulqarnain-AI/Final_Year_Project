@@ -18,6 +18,7 @@ def create_app():
     jwt.init_app(app)
 
     from app.routes.appointment_routes import appointment_bp
+    from app.routes.care_plan_routes import care_plan_bp
     from app.routes.audio_routes import audio_bp
     from app.routes.auth_routes import auth_bp
     from app.routes.chatbot_routes import chatbot_bp
@@ -32,6 +33,7 @@ def create_app():
     app.register_blueprint(patient_bp)
     app.register_blueprint(doctor_bp)
     app.register_blueprint(report_bp)
+    app.register_blueprint(care_plan_bp)
     app.register_blueprint(appointment_bp)
     app.register_blueprint(audio_bp)
 

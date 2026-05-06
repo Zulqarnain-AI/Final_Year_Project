@@ -125,10 +125,10 @@ function History() {
                                         <p className="text-gray-500">Patient ID</p>
                                         <p className="font-semibold text-gray-800">{report.patientId || "N/A"}</p>
                                     </div>
-                                    <div>
+                                    {/* <div>
                                         <p className="text-gray-500">Symptom Model</p>
                                         <p className="font-semibold text-gray-800">{formatPredictionLabel(report.symptom_prediction?.prediction || "N/A")}</p>
-                                    </div>
+                                    </div> */}
                                     <div className="md:col-span-2">
                                         <p className="text-gray-500">Symptoms</p>
                                         <div className="mt-2 flex flex-wrap gap-2">

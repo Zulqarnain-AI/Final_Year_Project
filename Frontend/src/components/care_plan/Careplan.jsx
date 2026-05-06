@@ -1,35 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { AlertTriangle, BrainCircuit, CheckCircle2, ChevronRight, Loader2, RefreshCcw, Sparkles, Stethoscope, Wind } from "lucide-react";
 
-const REPORT_API_URL = "http://127.0.0.1:5000/reports/latest";
-
-const conditionAdvice = {
-  asthma: {
-    home: ["Use prescribed inhaler on time", "Warm steam inhalation once daily", "Avoid smoke and strong fragrances"],
-    activity: ["Breathing exercise for 10 minutes", "Light walk for 15 minutes", "Track breathlessness episodes"],
-    notes: "Keep rescue inhaler nearby and avoid known triggers."
-  },
-  copd: {
-    home: ["Practice pursed-lip breathing", "Maintain hydration (6-8 glasses/day)", "Avoid exposure to dust or fumes"],
-    activity: ["Slow paced walk for 10-15 minutes", "Chest physiotherapy if advised", "Monitor oxygen symptoms"],
-    notes: "Stop smoking completely and follow medication schedule strictly."
-  },
-  bronchial: {
-    home: ["Warm fluids and honey-lemon tea", "Use humidified air at home", "Saltwater gargle twice daily"],
-    activity: ["Gentle stretching for 10 minutes", "Avoid cold outdoor exposure", "Track cough frequency"],
-    notes: "Seek medical care if cough worsens or fever persists."
-  },
-  pneumonia: {
-    home: ["Take adequate rest", "Drink warm fluids regularly", "Complete prescribed medicine course"],
-    activity: ["Short indoor walk if comfortable", "Deep breathing every 2-3 hours", "Monitor fever and chest pain"],
-    notes: "Urgent doctor follow-up is recommended for persistent shortness of breath."
-  },
-  healthy: {
-    home: ["Maintain hydration", "Continue balanced nutrition", "Sleep at least 7-8 hours"],
-    activity: ["Moderate walk for 20 minutes", "Daily breathing exercise", "Maintain indoor air quality"],
-    notes: "No strong disease signal found. Continue preventive respiratory care."
-  }
-};
+const CARE_PLAN_API_URL = "http://127.0.0.1:5000/care-plans/latest";
 
 function getCurrentUser() {
   const rawUser = localStorage.getItem("user");
@@ -53,103 +26,80 @@ function isReportOwnedByUser(report, user) {
   );
 }
 
-function normalizeCondition(value) {
-  return String(value || "healthy").toLowerCase();
+function safeText(value, fallback = "") {
+  if (value === null || value === undefined) return fallback;
+  const text = String(value).trim();
+  return text || fallback;
 }
 
-function createTaskMap(report) {
-  const condition = normalizeCondition(report?.final_prediction);
-  const basePlan = conditionAdvice[condition] || conditionAdvice.healthy;
-  const symptoms = Array.isArray(report?.symptoms) ? report.symptoms : [];
+function progressFromPlan(plan, progressMap) {
+  const items = [
+    ...(plan?.home_care || []),
+    ...(plan?.daily_activities || []),
+    ...(plan?.environmental_guidance || []),
+  ];
+  if (!items.length) return 0;
+  const completed = items.filter((item) => progressMap[item.id]).length;
+  return Math.round((completed / items.length) * 100);
+}
 
-  const symptomBasedTips = [];
-  if (symptoms.some((item) => String(item).toLowerCase().includes("fever"))) {
-    symptomBasedTips.push("Track body temperature morning and evening");
-  }
-  if (symptoms.some((item) => String(item).toLowerCase().includes("shortness of breath"))) {
-    symptomBasedTips.push("Practice controlled breathing during breathlessness");
-  }
-  if (symptoms.some((item) => String(item).toLowerCase().includes("cough"))) {
-    symptomBasedTips.push("Avoid cold drinks and monitor cough intensity");
-  }
-
-  const tasks = {};
-  [...basePlan.home, ...basePlan.activity, ...symptomBasedTips].forEach((label, index) => {
-    tasks[`task_${index + 1}`] = {
-      label,
-      done: false,
-      category: index < basePlan.home.length ? "Home Care" : "Daily Activity"
-    };
-  });
-
-  return {
-    tasks,
-    notes: basePlan.notes
+function SectionCard({ title, icon: Icon, subtitle, children, accent = "teal" }) {
+  const accentMap = {
+    teal: "from-teal-500/20 via-white to-white",
+    blue: "from-sky-500/20 via-white to-white",
+    amber: "from-amber-500/20 via-white to-white",
+    emerald: "from-emerald-500/20 via-white to-white",
   };
-}
-
-const CircularProgress = ({ percent }) => {
-  const radius = 50;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (percent / 100) * circumference;
 
   return (
-    <div className="relative w-28 h-28">
-      <svg className="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
-        <circle
-          className="text-gray-200"
-          strokeWidth="10"
-          stroke="currentColor"
-          fill="transparent"
-          r={radius}
-          cx="60"
-          cy="60"
-        />
-        <circle
-          className="text-teal-500 transition-all duration-700 ease-out"
-          strokeWidth="10"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          stroke="currentColor"
-          fill="transparent"
-          r={radius}
-          cx="60"
-          cy="60"
-        />
-      </svg>
-      <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center">
-        <span className="text-xl font-bold text-gray-800">{`${percent}%`}</span>
+    <div className={`rounded-3xl border border-slate-200 bg-gradient-to-br ${accentMap[accent] || accentMap.teal} shadow-[0_18px_50px_rgba(15,23,42,0.08)] p-5 sm:p-6`}>
+      <div className="flex items-start justify-between gap-4 mb-5">
+        <div>
+          <div className="flex items-center gap-3">
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-lg shadow-slate-900/15">
+              <Icon className="h-5 w-5" />
+            </span>
+            <div>
+              <h3 className="text-xl font-semibold text-slate-900">{title}</h3>
+              {subtitle ? <p className="text-sm text-slate-500 mt-1">{subtitle}</p> : null}
+            </div>
+          </div>
+        </div>
       </div>
+      {children}
     </div>
   );
-};
+}
 
-const CheckboxItem = ({ label, isChecked, onChange }) => (
-  <label className="flex items-center space-x-3 text-gray-700 cursor-pointer">
-    <input
-      type="checkbox"
-      checked={isChecked}
-      onChange={onChange}
-      className="form-checkbox h-5 w-5 text-teal-500 rounded-sm border-gray-300 focus:ring-teal-500"
-      style={{
-        backgroundColor: isChecked ? "#14b8a6" : "transparent",
-        borderColor: isChecked ? "#14b8a6" : "#d1d5db",
-        color: "white"
-      }}
-    />
-    <span className="text-base sm:text-lg">{label}</span>
-  </label>
-);
+function TaskRow({ item, checked, onToggle }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`w-full text-left rounded-2xl border p-4 transition-all duration-200 ${checked ? "border-teal-300 bg-teal-50/70" : "border-slate-200 bg-white hover:border-teal-200 hover:bg-teal-50/30"}`}
+    >
+      <div className="flex items-start gap-3">
+        <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${checked ? "border-teal-600 bg-teal-600 text-white" : "border-slate-300 bg-white text-transparent"}`}>
+          <CheckCircle2 className="h-4 w-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className={`font-medium ${checked ? "text-teal-900 line-through decoration-teal-500/70" : "text-slate-900"}`}>{item.title}</p>
+          {item.detail ? <p className="mt-1 text-sm leading-6 text-slate-600">{item.detail}</p> : null}
+        </div>
+      </div>
+    </button>
+  );
+}
 
 function CarePlanUI() {
   const location = useLocation();
   const currentUser = getCurrentUser();
 
   const reportStorageKey = getPatientScopedKey("latest_diagnosis_report", currentUser);
-  const carePlanStorageKey = getPatientScopedKey("care_plan_progress", currentUser);
+  const progressStorageKey = getPatientScopedKey("care_plan_progress", currentUser);
+  const carePlanStorageKey = getPatientScopedKey("generated_care_plan", currentUser);
 
-  const [report, setReport] = useState(() => {
+  const [report] = useState(() => {
     if (location.state?.report && isReportOwnedByUser(location.state.report, currentUser)) {
       return location.state.report;
     }
@@ -163,226 +113,333 @@ function CarePlanUI() {
       return null;
     }
   });
-  const [tasks, setTasks] = useState({});
-  const [notes, setNotes] = useState("");
-  const [showSuccess, setShowSuccess] = useState(false);
+  const [plan, setPlan] = useState(() => {
+    const cached = localStorage.getItem(carePlanStorageKey);
+    if (!cached) return null;
+    try {
+      return JSON.parse(cached);
+    } catch {
+      return null;
+    }
+  });
+  const [progressMap, setProgressMap] = useState(() => {
+    const cached = localStorage.getItem(progressStorageKey);
+    if (!cached) return {};
+    try {
+      return JSON.parse(cached) || {};
+    } catch {
+      return {};
+    }
+  });
+  const [loading, setLoading] = useState(!plan);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [notice, setNotice] = useState("");
 
-  useEffect(() => {
-    if (report) return;
+  const token = localStorage.getItem("access_token") || localStorage.getItem("token");
 
-    const token = localStorage.getItem("access_token") || localStorage.getItem("token");
+  const fetchPlan = async ({ isRefresh = false } = {}) => {
     if (!token) {
       setError("Please login to view your care plan.");
+      setLoading(false);
       return;
     }
 
-    const loadLatestReport = async () => {
-      setLoading(true);
-      setError("");
-      try {
-        const response = await fetch(REPORT_API_URL, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.error || "Unable to load latest diagnosis report.");
-        }
-
-        if (!isReportOwnedByUser(data, currentUser)) {
-          throw new Error("Unauthorized report data received.");
-        }
-
-        localStorage.setItem(reportStorageKey, JSON.stringify(data));
-        setReport(data);
-      } catch (err) {
-        setError(err.message || "Unable to load latest diagnosis report.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadLatestReport();
-  }, [report, currentUser, reportStorageKey]);
-
-  useEffect(() => {
-    if (!report) return;
-
-    const generated = createTaskMap(report);
-    const savedRaw = localStorage.getItem(carePlanStorageKey);
-
-    if (savedRaw) {
-      try {
-        const saved = JSON.parse(savedRaw);
-        const hydratedTasks = {};
-        Object.entries(generated.tasks).forEach(([key, value]) => {
-          hydratedTasks[key] = {
-            ...value,
-            done: Boolean(saved?.[key]?.done)
-          };
-        });
-        setTasks(hydratedTasks);
-      } catch {
-        setTasks(generated.tasks);
-      }
+    if (isRefresh) {
+      setRefreshing(true);
     } else {
-      setTasks(generated.tasks);
+      setLoading(true);
     }
 
-    setNotes(generated.notes);
-  }, [report, carePlanStorageKey]);
+    setError("");
+    setNotice("");
 
-  const handleTaskToggle = (taskName) => {
-    setTasks((prevTasks) => ({
-      ...prevTasks,
-      [taskName]: {
-        ...prevTasks[taskName],
-        done: !prevTasks[taskName].done
+    try {
+      const response = await fetch(CARE_PLAN_API_URL, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Unable to generate your care plan right now.");
       }
+
+      setPlan(data);
+      localStorage.setItem(carePlanStorageKey, JSON.stringify(data));
+      setNotice("Your care plan has been refreshed using the latest diagnosis and environmental data.");
+    } catch (err) {
+      setError(err.message || "Unable to generate your care plan right now.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    if (plan) return;
+    fetchPlan();
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(progressStorageKey, JSON.stringify(progressMap));
+  }, [progressMap, progressStorageKey]);
+
+  const sections = useMemo(() => {
+    return {
+      home: plan?.care_plan?.home_care || [],
+      activity: plan?.care_plan?.daily_activities || [],
+      environment: plan?.care_plan?.environmental_guidance || [],
+    };
+  }, [plan]);
+
+  const allItems = useMemo(() => {
+    return [...sections.home, ...sections.activity, ...sections.environment];
+  }, [sections]);
+
+  const progressPercent = progressFromPlan(plan?.care_plan, progressMap);
+  const completedCount = allItems.filter((item) => progressMap[item.id]).length;
+
+  const diagnosisLabel = safeText(plan?.report?.final_prediction, "healthy").replace(/_/g, " ");
+  const severity = safeText(plan?.report?.severity, "Moderate");
+  const confidence = Number(plan?.report?.final_confidence || 0);
+  const environmental = plan?.environmental_data || {};
+
+  const toggleTask = (itemId) => {
+    setProgressMap((prev) => ({
+      ...prev,
+      [itemId]: !prev[itemId],
     }));
   };
 
-  const handleUpdate = () => {
-    localStorage.setItem(carePlanStorageKey, JSON.stringify(tasks));
-    setShowSuccess(true);
-    setTimeout(() => {
-      setShowSuccess(false);
-    }, 3000);
+  const handleReset = () => {
+    setProgressMap({});
+    localStorage.removeItem(progressStorageKey);
+    setNotice("Progress was cleared for this care plan.");
   };
-
-  const taskEntries = Object.entries(tasks);
-  const completedCount = taskEntries.filter(([, task]) => task.done).length;
-  const totalTasks = taskEntries.length || 1;
-  const progressPercent = Math.round((completedCount / totalTasks) * 100);
-
-  const groupedTasks = useMemo(() => {
-    return {
-      home: taskEntries.filter(([, task]) => task.category === "Home Care"),
-      activity: taskEntries.filter(([, task]) => task.category === "Daily Activity")
-    };
-  }, [taskEntries]);
 
   if (error) {
     return (
-      <div className="w-full min-h-screen bg-gray-100 p-4 flex items-center justify-center">
-        <div className="max-w-xl bg-white rounded-xl border border-red-200 p-6 shadow-md text-center">
-          <h2 className="text-xl font-bold text-red-600 mb-2">Care Plan Error</h2>
-          <p className="text-slate-700">{error}</p>
-          <div className="mt-5 flex justify-center gap-3">
-            <Link to="/Input" className="bg-[#059AA0] text-white py-2 px-4 rounded">
-              Run Diagnosis
-            </Link>
-            <Link to="/dashboard" className="bg-white text-[#059AA0] py-2 px-4 rounded border border-[#059AA0]">
-              Dashboard
-            </Link>
+      <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(45,212,191,0.16),_transparent_35%),linear-gradient(180deg,#f8fafc_0%,#eefaf7_100%)] px-4 py-8 sm:px-6 lg:px-10">
+        <div className="mx-auto max-w-3xl rounded-3xl border border-red-200 bg-white/90 p-6 shadow-[0_30px_70px_rgba(15,23,42,0.08)] backdrop-blur">
+          <div className="flex items-start gap-4">
+            <div className="rounded-2xl bg-red-50 p-3 text-red-600">
+              <AlertTriangle className="h-6 w-6" />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-2xl font-semibold text-slate-900">Care plan unavailable</h2>
+              <p className="mt-2 text-slate-600">{error}</p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <button onClick={() => fetchPlan()} className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800">
+                  Try again
+                </button>
+                <Link to="/Input" className="rounded-2xl border border-teal-300 bg-teal-50 px-5 py-3 text-sm font-semibold text-teal-700 transition hover:bg-teal-100">
+                  Run diagnosis
+                </Link>
+                <Link to="/dashboard" className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300">
+                  Go to dashboard
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     );
   }
 
-  if (loading || !report) {
+  if (loading || !plan) {
     return (
-      <div className="w-full min-h-screen bg-gray-100 p-4 flex items-center justify-center">
-        <div className="text-slate-700 text-lg font-semibold">Preparing your personalized care plan...</div>
+      <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(45,212,191,0.16),_transparent_35%),linear-gradient(180deg,#f8fafc_0%,#eefaf7_100%)] px-4 py-8 sm:px-6 lg:px-10">
+        <div className="mx-auto flex min-h-[70vh] max-w-6xl items-center justify-center rounded-[2rem] border border-white/60 bg-white/70 p-8 shadow-[0_30px_70px_rgba(15,23,42,0.08)] backdrop-blur">
+          <div className="text-center">
+            <Loader2 className="mx-auto h-10 w-10 animate-spin text-teal-600" />
+            <p className="mt-4 text-lg font-semibold text-slate-800">Generating your personalized care plan...</p>
+            <p className="mt-2 text-sm text-slate-500">We’re combining your diagnosis, symptoms, and current environmental conditions.</p>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full min-h-screen bg-gray-100 p-4 flex justify-center items-start overflow-auto">
-      {showSuccess && (
-        <div className="fixed top-4 right-4 z-50 p-4 bg-green-500 text-white rounded-lg shadow-lg transition-opacity duration-300">
-          <p className="font-semibold flex items-center">
-            <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-            Care plan updated successfully.
-          </p>
-        </div>
-      )}
-
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl p-6 flex flex-col">
-        <header className="flex justify-between items-center pb-4 border-b border-gray-200 flex-shrink-0">
-          <div className="flex items-center text-xl font-bold text-teal-600">BreatheWell</div>
-          <div className="text-sm text-gray-600">
-            Patient: <span className="font-semibold">{report.patientId || "N/A"}</span>
-          </div>
-        </header>
-
-        <section className="py-5 border-b border-gray-100">
-          <h1 className="text-3xl font-semibold text-gray-800">Personalized Care Plan</h1>
-          <p className="text-slate-600 mt-2">
-            Condition: <span className="font-semibold text-teal-700 capitalize">{report.final_prediction || "healthy"}</span>
-            {" | "}
-            Severity: <span className="font-semibold text-amber-700">{report.severity || "Moderate"}</span>
-            {" | "}
-            Confidence: <span className="font-semibold text-teal-700">{(Number(report.final_confidence || 0) * 100).toFixed(1)}%</span>
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {(Array.isArray(report.symptoms) ? report.symptoms : []).map((symptom) => (
-              <span key={symptom} className="px-3 py-1 bg-teal-50 text-teal-700 rounded-full text-sm border border-teal-200">
-                {symptom}
-              </span>
-            ))}
-          </div>
-        </section>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-6">
-          <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-            <h2 className="text-xl font-semibold mb-4 text-gray-800">Home Care</h2>
-            <div className="space-y-4">
-              {groupedTasks.home.map(([taskName, task]) => (
-                <CheckboxItem
-                  key={taskName}
-                  label={task.label}
-                  isChecked={task.done}
-                  onChange={() => handleTaskToggle(taskName)}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm flex flex-col justify-between">
-            <h2 className="text-xl font-semibold mb-4 text-gray-800">Progress</h2>
-            <div className="flex items-center space-x-6">
-              <CircularProgress percent={progressPercent} />
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(45,212,191,0.16),_transparent_35%),linear-gradient(180deg,#f8fafc_0%,#eefaf7_100%)] px-4 py-8 sm:px-6 lg:px-10">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <div className="rounded-[2rem] border border-slate-200 bg-white/95 px-6 py-7 text-slate-900 shadow-[0_30px_90px_rgba(15,23,42,0.12)] backdrop-blur-sm sm:px-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="max-w-3xl space-y-4">
+              <div className="inline-flex items-center gap-2 rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-medium uppercase tracking-[0.2em] text-teal-700">
+                <Sparkles className="h-3.5 w-3.5" />
+                AI-generated care plan
+              </div>
               <div>
-                <p className="text-lg font-medium text-gray-800">Tasks completed</p>
-                <p className="text-sm text-gray-500 mt-1">{completedCount} of {taskEntries.length} done</p>
+                <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">Your personalized breathing plan</h1>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
+                  The plan adapts to your recent diagnosis, reported symptoms, and local air conditions so the guidance is more actionable than a static checklist.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-3 text-sm text-slate-600">
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-slate-700">Condition: {diagnosisLabel}</span>
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-slate-700">Severity: {severity}</span>
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-slate-700">Confidence: {(confidence * 100).toFixed(1)}%</span>
+              </div>
+            </div>
+
+            <div className="grid min-w-[280px] gap-3 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+              <button
+                type="button"
+                onClick={() => fetchPlan({ isRefresh: true })}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-teal-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-teal-600 disabled:opacity-60"
+                disabled={refreshing}
+              >
+                {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
+                Regenerate plan
+              </button>
+              <div className="grid grid-cols-2 gap-3 text-sm text-slate-600">
+                <Link to="/Report" className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center text-slate-700 transition hover:border-slate-300 hover:bg-slate-50">
+                  View report
+                </Link>
+                <button type="button" onClick={handleReset} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-700 transition hover:border-slate-300 hover:bg-slate-50">
+                  Reset progress
+                </button>
               </div>
             </div>
           </div>
+          {notice ? <p className="mt-5 rounded-2xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-700">{notice}</p> : null}
+        </div>
 
-          <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-            <h2 className="text-xl font-semibold mb-4 text-gray-800">Daily Activity</h2>
-            <div className="space-y-4">
-              {groupedTasks.activity.map(([taskName, task]) => (
-                <CheckboxItem
-                  key={taskName}
-                  label={task.label}
-                  isChecked={task.done}
-                  onChange={() => handleTaskToggle(taskName)}
-                />
-              ))}
+        <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
+          <div className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
+                <p className="text-sm font-medium text-slate-500">Patient</p>
+                <p className="mt-2 text-xl font-semibold text-slate-900">{safeText(plan?.patient?.name, "Patient")}</p>
+                <p className="mt-1 text-sm text-slate-500">{safeText(plan?.patient?.patientId, safeText(plan?.patient?.id, "N/A"))}</p>
+              </div>
+              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
+                <p className="text-sm font-medium text-slate-500">Progress</p>
+                <p className="mt-2 text-xl font-semibold text-slate-900">{progressPercent}%</p>
+                <p className="mt-1 text-sm text-slate-500">{completedCount} of {allItems.length} tasks done</p>
+              </div>
+              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
+                <p className="text-sm font-medium text-slate-500">AQI</p>
+                <p className="mt-2 text-xl font-semibold text-slate-900">{safeText(environmental.air_quality_index, "Unknown")}</p>
+                <p className="mt-1 text-sm text-slate-500">Humidity {safeText(environmental.humidity, "N/A")}%</p>
+              </div>
+              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
+                <p className="text-sm font-medium text-slate-500">Generated by</p>
+                <p className="mt-2 text-xl font-semibold text-slate-900">BreatheWell</p>
+                <p className="mt-1 text-sm text-slate-500">based on Symtomps, AI diagnosis, and environmental data</p>
+              </div>
+            </div>
+
+            <SectionCard title="Summary" icon={BrainCircuit} subtitle={safeText(plan?.care_plan?.summary, "A personalized respiratory care plan." )} accent="teal">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Priority</p>
+                  <p className="mt-2 text-lg font-semibold text-slate-900">{safeText(plan?.care_plan?.priority, "Moderate")}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Condition focus</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-700">{safeText(plan?.care_plan?.condition_focus)}</p>
+                </div>
+              </div>
+            </SectionCard>
+
+            <div className="grid gap-6 xl:grid-cols-3">
+              <SectionCard title="Home Care" icon={Stethoscope} subtitle="Daily actions at home" accent="emerald">
+                <div className="space-y-3">
+                  {sections.home.map((item) => (
+                    <TaskRow key={item.id} item={item} checked={Boolean(progressMap[item.id])} onToggle={() => toggleTask(item.id)} />
+                  ))}
+                </div>
+              </SectionCard>
+
+              <SectionCard title="Daily Activity" icon={CheckCircle2} subtitle="Safe movement and breathing habits" accent="blue">
+                <div className="space-y-3">
+                  {sections.activity.map((item) => (
+                    <TaskRow key={item.id} item={item} checked={Boolean(progressMap[item.id])} onToggle={() => toggleTask(item.id)} />
+                  ))}
+                </div>
+              </SectionCard>
+
+              <SectionCard title="Environment" icon={Wind} subtitle="Reduce exposure to triggers" accent="amber">
+                <div className="space-y-3">
+                  {sections.environment.map((item) => (
+                    <TaskRow key={item.id} item={item} checked={Boolean(progressMap[item.id])} onToggle={() => toggleTask(item.id)} />
+                  ))}
+                </div>
+              </SectionCard>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm flex flex-col justify-between">
-            <h2 className="text-xl font-semibold mb-4 text-gray-800">Notes</h2>
-            <p className="text-gray-700 text-lg">{notes}</p>
+          <div className="space-y-6">
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-slate-500">Progress ring</p>
+                  <h3 className="mt-1 text-2xl font-semibold text-slate-900">{progressPercent}% complete</h3>
+                </div>
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-teal-50 text-teal-700">
+                  <ChevronRight className="h-6 w-6" />
+                </div>
+              </div>
+              <div className="mt-6 h-4 overflow-hidden rounded-full bg-slate-100">
+                <div className="h-full rounded-full bg-gradient-to-r from-teal-500 via-cyan-500 to-sky-500 transition-all duration-500" style={{ width: `${progressPercent}%` }} />
+              </div>
+              <p className="mt-4 text-sm leading-6 text-slate-600">
+                Mark tasks as complete as you follow the plan. Your progress is saved locally for your account.
+              </p>
+            </div>
+
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
+              <div className="flex items-center gap-3">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+                  <AlertTriangle className="h-5 w-5" />
+                </span>
+                <div>
+                  <h3 className="text-xl font-semibold text-slate-900">Warning signs</h3>
+                  <p className="text-sm text-slate-500">Know when to get medical help</p>
+                </div>
+              </div>
+              <ul className="mt-5 space-y-3">
+                {(plan?.care_plan?.warning_signs || []).map((item) => (
+                  <li key={item} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700">
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
+              <h3 className="text-xl font-semibold text-slate-900">Questions for your doctor</h3>
+              <div className="mt-4 space-y-3">
+                {(plan?.care_plan?.questions_for_doctor || []).map((item) => (
+                  <div key={item} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700">
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-[2rem] border border-slate-200 bg-slate-950 p-6 text-slate-900 shadow-[0_18px_50px_rgba(15,23,42,0.18)]">
+              <h3 className="text-xl font-semibold">Follow-up</h3>
+              <p className="mt-3 text-sm leading-6 text-slate-900">{safeText(plan?.care_plan?.follow_up)}</p>
+              <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm leading-6 text-slate-900">
+                {safeText(plan?.care_plan?.disclaimer, "This plan is AI-generated and should support, not replace, medical advice from a qualified clinician.")}
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="mt-2 flex justify-center gap-4">
-          <button
-            onClick={handleUpdate}
-            className="bg-teal-500 hover:bg-teal-600 text-white font-semibold py-3 px-12 rounded-lg shadow-md transition-colors text-lg"
-          >
-            Update
+        <div className="flex flex-wrap items-center justify-center gap-3 pb-4">
+          <button onClick={() => fetchPlan({ isRefresh: true })} className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-800" disabled={refreshing}>
+            {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
+            Regenerate plan
           </button>
-          <Link to="/Report" className="bg-white border border-teal-500 text-teal-600 font-semibold py-3 px-8 rounded-lg shadow-sm transition-colors text-lg hover:bg-teal-50">
-            View Report
+          <Link to="/Report" className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300">
+            View report
+          </Link>
+          <Link to="/dashboard" className="rounded-2xl border border-teal-200 bg-teal-50 px-5 py-3 text-sm font-semibold text-teal-700 transition hover:bg-teal-100">
+            Back to dashboard
           </Link>
         </div>
       </div>

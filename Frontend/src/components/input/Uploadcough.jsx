@@ -128,7 +128,7 @@ function Uploadcough() {
 
   const analysisSteps = [
     "Preparing your inputs...",
-    "Analyzing cough waveform...",
+    "Analyzing Breathe waveform...",
     "Matching symptom profile...",
     "Generating final diagnosis...",
   ];
@@ -314,7 +314,7 @@ function Uploadcough() {
 
           <div className="relative z-10 mt-5 text-center">
             <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-              Record or Upload Cough Audio
+              Record or Upload Breathe Audio
             </h1>
             <p className="mx-auto mt-2 max-w-2xl text-sm text-slate-600 sm:text-base">
               Use your microphone or upload an audio file. Our AI combines this with your symptoms to improve diagnosis accuracy.
@@ -328,9 +328,9 @@ function Uploadcough() {
           <div className="relative z-10 mt-8 grid grid-cols-1 gap-5 lg:grid-cols-2">
             <div className="rounded-2xl border border-cyan-100 bg-gradient-to-br from-cyan-50 to-white p-6 shadow-md transition hover:-translate-y-1 hover:shadow-lg">
               <img src={VoiceRecorder} alt="Record" className="mx-auto h-[80px] w-[52px]" />
-              <h2 className="mt-4 text-center text-xl font-bold text-cyan-700">Record Cough</h2>
+              <h2 className="mt-4 text-center text-xl font-bold text-cyan-700">Record Breathe</h2>
               <p className="mt-2 text-center text-sm text-slate-600">
-                Press start, cough clearly for a few seconds, then stop to save and preview.
+                Press start, Breathe clearly for a few seconds, then stop to save and preview.
               </p>
 
               <div className="mt-5 flex flex-wrap justify-center gap-3">
