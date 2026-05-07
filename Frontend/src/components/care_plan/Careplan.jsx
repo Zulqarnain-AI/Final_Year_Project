@@ -420,7 +420,7 @@ function CarePlanUI() {
               </div>
             </div>
 
-            <div className="rounded-[2rem] border border-slate-200 bg-slate-950 p-6 text-slate-900 shadow-[0_18px_50px_rgba(15,23,42,0.18)]">
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 text-slate-900 shadow-[0_18px_50px_rgba(15,23,42,0.18)]">
               <h3 className="text-xl font-semibold">Follow-up</h3>
               <p className="mt-3 text-sm leading-6 text-slate-900">{safeText(plan?.care_plan?.follow_up)}</p>
               <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm leading-6 text-slate-900">
@@ -431,11 +431,11 @@ function CarePlanUI() {
         </div>
 
         <div className="flex flex-wrap items-center justify-center gap-3 pb-4">
-          <button onClick={() => fetchPlan({ isRefresh: true })} className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-800" disabled={refreshing}>
+          <button onClick={() => fetchPlan({ isRefresh: true })} className="inline-flex items-center gap-2 rounded-2xl border border-teal-200 bg-teal-50 px-5 py-3 text-sm font-semibold text-teal-700 transition hover:bg-teal-100" disabled={refreshing}>
             {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
             Regenerate plan
           </button>
-          <Link to="/Report" className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300">
+          <Link to="/Report" className="rounded-2xl border border-teal-200   px-5 py-3 text-sm font-semibold text-teal-700 transition hover:bg-teal-100">
             View report
           </Link>
           <Link to="/dashboard" className="rounded-2xl border border-teal-200 bg-teal-50 px-5 py-3 text-sm font-semibold text-teal-700 transition hover:bg-teal-100">
