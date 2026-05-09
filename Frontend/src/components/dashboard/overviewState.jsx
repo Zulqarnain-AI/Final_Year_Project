@@ -12,7 +12,7 @@ const DEFAULT_STATS = {
   doctor_gender_counts: { male: 0, female: 0, other: 0 },
 }
 
-const PIE_COLORS = ["#d21515", "#4674de"]
+const PIE_COLORS = ["#0d9488", "#51a4fd"]
 
 function getToken() {
   const raw = localStorage.getItem("access_token") || localStorage.getItem("token") || ""
@@ -76,7 +76,7 @@ export function OverviewStats() {
     { icon: User, label: "Patients", value: stats.total_patients },
     { icon: Stethoscope, label: "Doctors", value: stats.total_doctors },
     { icon: UserPlus, label: "Female Patients", value: stats.patient_gender_counts.female },
-    { icon: Stethoscope, label: "Male Patients", value: stats.patient_gender_counts.male },
+    { icon: UserPlus, label: "Male Patients", value: stats.patient_gender_counts.male },
   ]
 
   return (

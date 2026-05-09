@@ -140,10 +140,7 @@ function DoctorProfileEdit() {
           <input name="department" value={formData.department || ''} onChange={handleChange} placeholder="Department" className="px-4 py-2 border rounded" />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <input name="experience" value={formData.experience || ''} onChange={handleChange} placeholder="Experience (years)" className="px-4 py-2 border rounded" />
-          <input name="rating" value={formData.rating || ''} onChange={handleChange} placeholder="Rating" className="px-4 py-2 border rounded" />
-        </div>
+        
 
         <textarea name="bio" value={formData.bio || ''} onChange={handleChange} placeholder="Short bio / details" className="w-full px-4 py-2 border rounded" />
 

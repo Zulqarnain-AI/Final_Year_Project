@@ -98,11 +98,11 @@ def login_user(data):
         return {"error": "Provide email, password and role"}, 400
 
     if role not in ["doctor", "patient"]:
-        return {"error": "Invalid role"}, 400
+        return {"error": "please selesct role"}, 400
 
     user = find_doctor_by_email(email) if role == "doctor" else find_patient_by_email(email)
     if not user:
-        return {"error": "User not found"}, 404
+        return {"error": "User not found, register first"}, 404
 
     if not check_password_hash(user["password"], password):
         return {"error": "Incorrect password"}, 401

@@ -144,11 +144,11 @@ function DoctorDashboard() {
           <button
             type="button"
             onClick={loadAppointments}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-700 transition hover:border-[#059AA0] hover:text-[#059AA0]"
+            className="rounded-xl border border-[#059AA0] bg-white px-4 py-3 font-semibold text-[#059AA0] transition hover:bg-cyan-50"
           >
             Refresh
           </button>
-          <button
+          {/* <button
             type="button"
             onClick={() => navigate('/doctor/profile')}
             className="rounded-xl border border-[#059AA0] bg-white px-4 py-3 font-semibold text-[#059AA0] transition hover:bg-cyan-50"
@@ -161,7 +161,7 @@ function DoctorDashboard() {
             className="rounded-xl bg-[#059AA0] px-4 py-3 font-semibold text-white transition hover:bg-[#047b80]"
           >
             Edit Profile
-          </button>
+          </button> */}
         </div>
       </div>
 

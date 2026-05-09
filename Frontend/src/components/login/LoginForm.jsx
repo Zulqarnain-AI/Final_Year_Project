@@ -100,9 +100,7 @@ export default function LoginForm({ navigate, setParentError, setParentSuccess }
 
                 {/* Role Selector */}
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Login as
-                    </label>
+                    
                     <select
                         name="role"
                         value={formData.role}

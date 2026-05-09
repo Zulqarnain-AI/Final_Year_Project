@@ -2,11 +2,11 @@
 
 import { PieChart, Pie, Cell, Legend, ResponsiveContainer } from "recharts"
 
-const data = [
-  { name: "Female", value: 30, fill: "#14b8a6" },
-  { name: "Male", value: 40, fill: "#f97316" },
-  { name: "Child", value: 25, fill: "#6366f1" },
-]
+// const data = [
+//   { name: "Female", value: 30, fill: "#14b8a6" },
+//   { name: "Male", value: 40, fill: "#f97316" },
+//   { name: "Child", value: 25, fill: "#6366f1" },
+// ]
 
 export function GenderChart() {
   return (
