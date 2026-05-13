@@ -39,7 +39,7 @@ function Herosection() {
     "wheezing",
     "cough with blood",
     "whistling sound while breathing",
-    "fatigue",
+    "runny nose",
   ];
 
   const handleNext = () => {

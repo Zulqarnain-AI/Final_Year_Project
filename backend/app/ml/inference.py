@@ -72,7 +72,7 @@ def predict_symptoms(symptoms_list, age, sex):
     }
 
 
-def combine_probabilities(audio_probs, symptom_probs, audio_weight=0.65):
+def combine_probabilities(audio_probs, symptom_probs, audio_weight=0.60):
     combined = {}
     for label in CANONICAL_CLASS_NAMES:
         combined[label] = (

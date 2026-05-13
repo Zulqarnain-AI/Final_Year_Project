@@ -238,8 +238,8 @@ function Uploadcough() {
   };
 
   const handleDiagnosis = async () => {
-    if (!file && selectedSymptoms.length === 0) {
-      setError("Please select symptoms and/or upload a cough audio file before diagnosis.");
+    if (!file || selectedSymptoms.length === 0) {
+      setError("Please select symptoms and upload a breath audio file before diagnosis.");
       return;
     }
 
