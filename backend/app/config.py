@@ -3,7 +3,8 @@ from datetime import timedelta
 
 
 class Config:
-    MONGO_URI = os.environ.get("MONGO_URI", "mongodb://localhost:27017/breathewell_db")
+    # MONGO_URI = os.environ.get("MONGO_URI", "mongodb+srv://rhadestew123_db_user:XW5cYAykiP2bprWN@breathwell.cprxemv.mongodb.net/?appName=BreathWell/breathewell_db")
+    MONGO_URI=os.environ.get("MONGO_URI","mongodb+srv://zulqarnainhassan101_db_user:i5K6arbBBCDgDsCA@cluster0.tszdaka.mongodb.net/")
     SECRET_KEY = os.environ.get(
         "SECRET_KEY",
         "breathewell_dev_secret_key_2026_please_change_me_32_plus_bytes",
