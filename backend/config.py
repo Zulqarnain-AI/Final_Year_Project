@@ -2,7 +2,7 @@ import os
 from datetime import timedelta
 
 class Config:
-    MONGO_URI = os.environ.get("MONGO_URI", "mongodb+srv://rhadestew123_db_user:XW5cYAykiP2bprWN@breathwell.cprxemv.mongodb.net/?appName=BreathWell/breathewell_db")
+    MONGO_URI = os.environ.get("MONGO_URI", "")
     # Use 32+ byte secrets for HMAC-SHA256 (JWT). Set these in environment for production.
     SECRET_KEY = os.environ.get(
         "SECRET_KEY",
